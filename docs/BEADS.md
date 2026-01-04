@@ -157,6 +157,6 @@ Scope:
 - ensure `--dry-run` never mutates
 
 Acceptance criteria:
-- tests pass when `YNAC_TOKEN` and `YNAC_BUDGET_ID` are set
+- tests pass when `YNAB_TOKEN` and `YNAB_BUDGET_ID` are set
 - tests fail fast with clear error if budget id is not the required test budget
 

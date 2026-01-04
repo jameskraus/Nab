@@ -17,8 +17,8 @@ Supported formats:
 
 ## Dates & locale
 
-- Transaction dates are date-only (`YYYY-MM-DD`) in the API.
-- For display, render dates using the user's local locale & timezone (automatic; no explicit TZ configuration needed).
+- Transaction dates are UTC date-only (`YYYY-MM-DD`) in the API.
+- For display, render dates as they were given by the API.
 
 ## Mutations
 
