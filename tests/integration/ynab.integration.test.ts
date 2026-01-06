@@ -81,6 +81,15 @@ function pickWritableTransaction(transactions: TransactionDetail[]): Transaction
   return candidate ?? null;
 }
 
+function pickTransferTransaction(transactions: TransactionDetail[]): TransactionDetail | null {
+  const candidate = transactions.find(
+    (transaction) =>
+      Boolean(transaction.transfer_account_id || transaction.transfer_transaction_id) &&
+      !transaction.deleted,
+  );
+  return candidate ?? null;
+}
+
 if (!token || !budgetId) {
   test.skip("integration: set NAB_TOKENS and NAB_BUDGET_ID to run", () => {});
 } else if (budgetId !== REQUIRED_BUDGET_ID) {
@@ -244,5 +253,22 @@ if (!token || !budgetId) {
     await service.deleteTransactions([transaction.id], { dryRun: false });
 
     await expect(client.getTransaction(budgetId, transaction.id)).rejects.toBeTruthy();
+  });
+
+  test("integration: account set rejects transfers", async () => {
+    const transactions = await client.listTransactions(budgetId);
+    const transfer = pickTransferTransaction(transactions);
+    if (!transfer) return;
+
+    const accounts = await client.listAccounts(budgetId);
+    const account = pickAccount(accounts);
+    if (!account) return;
+
+    const service = new TransactionService(client, budgetId);
+    await expect(
+      service.mutateTransactions([transfer.id], () => ({ account_id: account.id }), {
+        dryRun: true,
+      }),
+    ).rejects.toThrow("Transfers cannot be moved in v1.");
   });
 }

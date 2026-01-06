@@ -98,6 +98,12 @@ export class TransactionService {
         continue;
       }
 
+      if (nextPatch.account_id !== undefined) {
+        if (transaction.transfer_account_id || transaction.transfer_transaction_id) {
+          throw new Error("Transfers cannot be moved in v1.");
+        }
+      }
+
       if (options.dryRun) {
         results.push({
           id,
