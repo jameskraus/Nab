@@ -34,12 +34,6 @@ nab config show
 nab --help
 ```
 
-## Test budget (required for integration tests)
-
-All integration tests MUST run against this safe test budget:
-- Budget ID: `06443689-ec9d-45d9-a37a-53dc60014769`
-- Web URL: https://app.ynab.com/06443689-ec9d-45d9-a37a-53dc60014769/budget/202601
-
 ## Development
 
 - Runtime: **Bun**

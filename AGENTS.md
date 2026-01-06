@@ -29,9 +29,13 @@
 - Documentation should describe the current version only (the "now"), not legacy behavior.
 
 ## Integration testing (REQUIRED budget)
-All integration tests MUST target only this budget:
+All integration tests MUST target only this budget by default:
 - Budget ID: `06443689-ec9d-45d9-a37a-53dc60014769`
 - Web URL: https://app.ynab.com/06443689-ec9d-45d9-a37a-53dc60014769/budget/202601
+
+This budget belongs to the original author and may not work for other contributors. If it does not work,
+contributors should specify their own budget via an `AGENTS.override.md` or equivalent local override,
+but agents must never choose or operate on a different budget on their own.
 
 Environment variables used by tests:
 - `NAB_TOKENS` (required)
