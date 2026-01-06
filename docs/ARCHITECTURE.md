@@ -1,6 +1,13 @@
 # Architecture
 
-`ynac` is a layered CLI application.
+`nab` is a layered CLI application.
+
+## Naming conventions (rename to `nab`)
+
+- **Binary name:** `nab`
+- **Config dir name:** `nab` (OS-specific base path; e.g., `~/.config/nab` on Linux)
+- **Env vars (primary):** `NAB_TOKENS`, `NAB_BUDGET_ID`, `NAB_CONFIG_DIR`
+- **Migrations:** `schema_migrations` + `schema_version` track journal schema; we only support the latest layout.
 
 ## Layers
 
@@ -30,10 +37,21 @@ Responsibilities:
 - consistent error mapping (`401` -> Unauthorized, `404` -> NotFound, `429` -> RateLimited)
 - retry/backoff (ONLY where safe)
 
+Implementation notes:
+- `YnabClient` wraps the SDK and depends on a small `YnabSdk` adapter interface for testability.
+- Rate limit headers are tracked from raw SDK responses.
+
 ### 4) Persistence layer
-- `src/config/**`: config file (token, default budget id)
+- `src/config/**`: config file (tokens, default budget id)
 - `src/journal/**`: sqlite journal of applied actions
 - `src/cache/**`: sqlite cache + delta-sync state (`server_knowledge`)
+
+#### Journal DB schema
+- `schema_migrations`: applied migration ids with timestamps
+- `schema_version`: single-row pointer to the latest migration id
+- `history_actions`: journal of applied mutations (payload + inverse patch)
+- `cache_entities`: cached API entities keyed by `(budget_id, entity_type, entity_id)`
+- `cache_state`: per-budget sync state (`server_knowledge`)
 
 ### 5) IO / formatting layer (`src/io/**`)
 Responsibilities:

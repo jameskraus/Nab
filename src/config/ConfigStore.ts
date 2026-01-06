@@ -2,7 +2,7 @@ import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
 import { getConfigFilePath } from "./paths";
-import { ConfigSchema, type Config } from "./schema";
+import { type Config, ConfigSchema } from "./schema";
 
 export class ConfigStore {
   constructor(private readonly filePath: string = getConfigFilePath()) {}
@@ -44,7 +44,7 @@ export class ConfigStore {
 
   async clear(keys: (keyof Config)[] | "all" = "all"): Promise<Config> {
     if (keys === "all") {
-      return this.save({ token: undefined, budgetId: undefined });
+      return this.save({ tokens: undefined, budgetId: undefined });
     }
 
     const current = await this.load();
@@ -57,10 +57,10 @@ export class ConfigStore {
    * For display in terminals/logs.
    */
   redact(config: Config): Config {
-    if (!config.token) return config;
+    if (!config.tokens) return config;
     return {
       ...config,
-      token: `${config.token.slice(0, 4)}…${config.token.slice(-4)}`,
+      tokens: config.tokens.map((token) => `${token.slice(0, 4)}…${token.slice(-4)}`),
     };
   }
 }

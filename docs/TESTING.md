@@ -4,6 +4,7 @@
 
 - **Unit tests**: pure functions + repositories with fakes
 - **Integration tests**: hit YNAB API against the dedicated safe test budget
+- **E2E tests**: invoke the real CLI end-to-end
 
 ## Required integration budget
 
@@ -22,13 +23,32 @@ bun test
 Integration tests require environment variables:
 
 ```bash
-export YNAC_TOKEN="<PAT>"
-export YNAC_BUDGET_ID="06443689-ec9d-45d9-a37a-53dc60014769"
+export NAB_TOKENS="<PAT1>,<PAT2>"
+export NAB_BUDGET_ID="06443689-ec9d-45d9-a37a-53dc60014769"
 
 bun test --filter integration
 ```
 
+## Running E2E tests
+
+E2E tests execute the real CLI and require:
+
+```bash
+export NAB_TOKENS="<PAT1>,<PAT2>"
+export NAB_BUDGET_ID="06443689-ec9d-45d9-a37a-53dc60014769"
+
+bun test --filter e2e
+```
+
+## Debugging rate limits
+
+To see token rotation/cooldown events while tests run, enable:
+
+```bash
+export NAB_TOKEN_TRACE=1
+```
+
 Guidelines:
 - prefer replayable, idempotent assertions
-- avoid changing real data unless the test cleans up after itself
-- always include `--dry-run` coverage for mutation commands
+- test budget mutations are allowed, but always restore original values
+- include `--dry-run` coverage where it adds value, not as a hard requirement

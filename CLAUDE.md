@@ -1,4 +1,4 @@
-# Project guidelines (ynac)
+# Project guidelines (nab)
 
 ## Runtime & tooling
 - Default to **Bun** (not Node).
@@ -9,7 +9,7 @@
 - Use Bun's built-in `bun:sqlite` for SQLite.
 
 ## CLI design constraints
-- Binary name: `ynac`
+- Binary name: `nab`
 - Prefer **yargs** for argument parsing.
 - Avoid positional args as much as possible (max one positional per command).
 - Mutations must require explicit transaction IDs (no implicit selection/filter sets).
@@ -29,5 +29,5 @@ All integration tests MUST target only this budget:
 - Web URL: https://app.ynab.com/06443689-ec9d-45d9-a37a-53dc60014769/budget/202601
 
 Environment variables used by tests:
-- `YNAC_TOKEN` (required)
-- `YNAC_BUDGET_ID` (must equal the budget id above)
+- `NAB_TOKENS` (required)
+- `NAB_BUDGET_ID` (must equal the budget id above)

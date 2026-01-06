@@ -1,6 +1,6 @@
-# ynac
+# nab
 
-`ynac` is a Bun + TypeScript CLI for interacting with your **YNAB** (You Need A Budget) account via the **YNAB API**.
+`nab` is a Bun + TypeScript CLI for interacting with your **YNAB** (You Need A Budget) account via the **YNAB API**.
 
 It is intentionally designed as a **"porcelain" CLI for AI agents**:
 - high-level, human/agent-meaningful subcommands (approve, categorize, add memo, clear, delete, etc.)
@@ -15,17 +15,23 @@ It is intentionally designed as a **"porcelain" CLI for AI agents**:
 ```bash
 bun install
 
-# Set your token (Personal Access Token)
-ynac config set --token "<PAT>"
+# Set your tokens (Personal Access Tokens)
+nab auth token add "<PAT1>"
+nab auth token add "<PAT2>"
+
 
 # Set default budget for this machine
-ynac config set --budget-id 06443689-ec9d-45d9-a37a-53dc60014769
+nab config set --budget-id 06443689-ec9d-45d9-a37a-53dc60014769
 
-# Show config (redacts token)
-ynac config show
+# Or use environment variables
+export NAB_TOKENS="<PAT1>,<PAT2>"
+export NAB_BUDGET_ID=06443689-ec9d-45d9-a37a-53dc60014769
+
+# Show config (redacts tokens)
+nab config show
 
 # See available commands
-ynac --help
+nab --help
 ```
 
 ## Test budget (required for integration tests)

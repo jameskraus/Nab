@@ -1,6 +1,11 @@
 import yargs from "yargs/yargs";
 
+import { createAppContext } from "@/app/createAppContext";
+import { formatError } from "@/util/errors";
+import { exitCodeForError } from "@/util/exitCodes";
+import type { Argv } from "yargs";
 import { accountCommand } from "./commands/account";
+import { authCommand } from "./commands/auth";
 import { budgetCommand } from "./commands/budget";
 import { cacheCommand } from "./commands/cache";
 import { categoryCommand } from "./commands/category";
@@ -8,12 +13,11 @@ import { configCommand } from "./commands/config";
 import { historyCommand } from "./commands/history";
 import { payeeCommand } from "./commands/payee";
 import { txCommand } from "./commands/tx";
-import { ExitCode } from "@/util/exitCodes";
-import { formatError } from "@/util/errors";
+import type { CliGlobalArgs } from "./types";
 
 export function createCli(argv: string[]) {
-  const cli = yargs(argv)
-    .scriptName("ynac")
+  const cli = (yargs(argv) as Argv<CliGlobalArgs>)
+    .scriptName("nab")
     .usage("$0 <command> [options]")
     .help()
     .alias("h", "help")
@@ -52,15 +56,56 @@ export function createCli(argv: string[]) {
       default: false,
       describe: "Skip interactive confirmation prompts",
     })
+    .group(["budget-id", "format", "quiet", "no-color", "dry-run", "yes"], "Global Options")
+    .check((argv) => {
+      if (typeof argv["budget-id"] === "string" && argv["budget-id"].trim().length === 0) {
+        throw new Error("Provide a non-empty --budget-id value.");
+      }
+      return true;
+    })
+    .middleware(async (argv) => {
+      const command = String(argv._[0] ?? "");
+      const subcommand = String(argv._[1] ?? "");
+      if (!command) return;
+      if (command === "auth") return;
+      if (command === "config") return;
+      if (command === "history") {
+        (argv as { appContext?: unknown }).appContext = await createAppContext({
+          argv: argv as { "budget-id"?: string; budgetId?: string },
+          requireToken: false,
+          requireBudgetId: false,
+          createDb: true,
+        });
+        return;
+      }
+      const isBudgetList = command === "budget" && subcommand === "list";
+      const isBudgetCurrent = command === "budget" && subcommand === "current";
+      const isReadOnlyList =
+        (command === "account" || command === "category" || command === "payee") &&
+        subcommand === "list";
+      const isTxReadOnly = command === "tx" && (subcommand === "list" || subcommand === "get");
+
+      const requireToken = !isBudgetCurrent;
+      const requireBudgetId = !(isBudgetList || isBudgetCurrent);
+      const createDb = !(isBudgetList || isBudgetCurrent || isReadOnlyList || isTxReadOnly);
+
+      // Attach for future handlers; throws on missing auth context.
+      (argv as { appContext?: unknown }).appContext = await createAppContext({
+        argv: argv as { "budget-id"?: string; budgetId?: string },
+        requireToken,
+        requireBudgetId,
+        createDb,
+      });
+    })
     .fail((msg, err, y) => {
       const error = err ?? new Error(msg);
-      const exitCode = msg ? ExitCode.Usage : ExitCode.Software;
+      const exitCode = exitCodeForError(error);
 
       // Errors to stderr; keep stdout clean for piping.
       process.stderr.write(`${formatError(error)}\n`);
 
       // Show help for usage errors in interactive terminals.
-      if (exitCode === ExitCode.Usage && process.stderr.isTTY) {
+      if (msg && process.stderr.isTTY) {
         y.showHelp("error");
       }
 
@@ -70,6 +115,7 @@ export function createCli(argv: string[]) {
     .command(accountCommand)
     .command(categoryCommand)
     .command(payeeCommand)
+    .command(authCommand)
     .command(configCommand)
     .command(txCommand)
     .command(cacheCommand)
@@ -84,5 +130,5 @@ export function createCli(argv: string[]) {
 function cliTerminalWidth(): number {
   // yargs.terminalWidth() is only available on the yargs instance.
   // This keeps the scaffold simple.
-  return process.stdout.isTTY ? process.stdout.columns ?? 120 : 120;
+  return process.stdout.isTTY ? (process.stdout.columns ?? 120) : 120;
 }

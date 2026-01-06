@@ -23,8 +23,8 @@ Scope:
 - top-level error mapping to `ExitCode` codes
 
 Acceptance criteria:
-- running `ynac --help` works
-- `ynac config show --format json` prints valid JSON
+- running `nab --help` works
+- `nab config show --format json` prints valid JSON
 - usage errors return exit code 2
 
 Key files:
@@ -33,16 +33,16 @@ Key files:
 - `src/cli/root.ts`
 
 ## Bead 2 — Config resolution
-Goal: support token + default budget id loading.
+Goal: support tokens + default budget id loading.
 Scope:
 - config file read/write (already partially implemented)
-- resolve `YNAC_TOKEN` / `YNAC_BUDGET_ID` env overrides
+- resolve `NAB_TOKENS` / `NAB_BUDGET_ID` env overrides
 - resolve `--budget-id` override
 
 Acceptance criteria:
-- `ynac config set --token ...`
-- `ynac config set --budget-id ...`
-- any command can resolve an effective token + budget id (or fail with actionable error)
+- `nab config set --tokens ...`
+- `nab config set --budget-id ...`
+- any command can resolve effective tokens + budget id (or fail with actionable error)
 
 Key files:
 - `src/config/**`
@@ -84,12 +84,12 @@ Key files:
 ## Bead 5 — Read-only commands (agent-safe)
 Goal: let agents query budgets and transactions.
 Commands:
-- `ynac budget list`
-- `ynac account list`
-- `ynac category list`
-- `ynac payee list`
-- `ynac tx list`
-- `ynac tx get --id ...`
+- `nab budget list`
+- `nab account list`
+- `nab category list`
+- `nab payee list`
+- `nab tx list`
+- `nab tx get --id ...`
 
 Acceptance criteria:
 - outputs support `--format json`
@@ -98,21 +98,21 @@ Acceptance criteria:
 ## Bead 6 — Transaction mutation operations (v1 core)
 Goal: implement the common transaction operations as high-level CLI commands.
 Commands (all must support `--dry-run` and require `--yes` to apply):
-- `ynac tx approve --id ...`
-- `ynac tx unapprove --id ...`
-- `ynac tx delete --id ...`
-- `ynac tx category set --id ... --category-id ... | --category-name ...`
-- `ynac tx category clear --id ...`
-- `ynac tx memo get --id ...`
-- `ynac tx memo set --id ... --memo ...`
-- `ynac tx memo clear --id ...`
-- `ynac tx flag set --id ... --color ...`
-- `ynac tx flag clear --id ...`
-- `ynac tx cleared set --id ... --status cleared|uncleared|reconciled`
-- `ynac tx date set YYYY-MM-DD --id ...`
-- `ynac tx payee set --id ... --payee-id ... | --payee-name ...`
-- `ynac tx amount set --id ... --amount ...` (single id only)
-- `ynac tx account set --id ... --account-id ... | --account-name ...` (error on transfers)
+- `nab tx approve --id ...`
+- `nab tx unapprove --id ...`
+- `nab tx delete --id ...`
+- `nab tx category set --id ... --category-id ... | --category-name ...`
+- `nab tx category clear --id ...`
+- `nab tx memo get --id ...`
+- `nab tx memo set --id ... --memo ...`
+- `nab tx memo clear --id ...`
+- `nab tx flag set --id ... --color ...`
+- `nab tx flag clear --id ...`
+- `nab tx cleared set --id ... --status cleared|uncleared|reconciled`
+- `nab tx date set YYYY-MM-DD --id ...`
+- `nab tx payee set --id ... --payee-id ... | --payee-name ...`
+- `nab tx amount set --id ... --amount ...` (single id only)
+- `nab tx account set --id ... --account-id ... | --account-name ...` (error on transfers)
 
 Acceptance criteria:
 - idempotent operations: re-running same command does not change anything
@@ -120,7 +120,7 @@ Acceptance criteria:
 - ambiguous name resolution returns error with candidates
 
 ## Bead 7 — History journaling for applied actions
-Goal: record what `ynac` did locally for later inspection and potential revert.
+Goal: record what `nab` did locally for later inspection and potential revert.
 Scope:
 - write a `history_actions` record for every applied mutation
 - record:
@@ -131,7 +131,7 @@ Scope:
   - inverse patch (best effort)
 
 Commands:
-- `ynac history show` (new)
+- `nab history show` (new)
 
 Acceptance criteria:
 - after a mutation, `history show` lists it
@@ -146,7 +146,7 @@ Scope:
 - read commands optionally served from cache (`--cached`)
 
 Acceptance criteria:
-- `ynac tx list --cached` works after `ynac cache sync`
+- `nab tx list --cached` works after `nab cache sync`
 - repeated syncs only fetch deltas
 
 ## Bead 9 — Integration tests (real YNAB budget)
@@ -157,6 +157,5 @@ Scope:
 - ensure `--dry-run` never mutates
 
 Acceptance criteria:
-- tests pass when `YNAB_TOKEN` and `YNAB_BUDGET_ID` are set
+- tests pass when `NAB_TOKENS` and `NAB_BUDGET_ID` are set
 - tests fail fast with clear error if budget id is not the required test budget
-

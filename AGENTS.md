@@ -23,14 +23,19 @@
 - Transfers: moving transfers is out of scope for v1; attempting to move them should error.
 - Splits: split creation/editing is out of scope for v1.
 
+## Compatibility policy
+- We do **not** value backwards compatibility for this tool at this stage.
+- This is greenfield development; feel free to change or discard old behavior/decisions.
+- Documentation should describe the current version only (the "now"), not legacy behavior.
+
 ## Integration testing (REQUIRED budget)
 All integration tests MUST target only this budget:
 - Budget ID: `06443689-ec9d-45d9-a37a-53dc60014769`
 - Web URL: https://app.ynab.com/06443689-ec9d-45d9-a37a-53dc60014769/budget/202601
 
 Environment variables used by tests:
-- `YNAB_TOKEN` (required)
-- `YNAB_BUDGET_ID` (must equal the budget id above)
+- `NAB_TOKENS` (required)
+- `NAB_BUDGET_ID` (must equal the budget id above)
 
 
 # Agent Instructions

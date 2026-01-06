@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const ConfigSchema = z
   .object({
-    token: z.string().min(1).optional(),
+    tokens: z.array(z.string().min(1)).min(1).optional(),
     budgetId: z.string().min(1).optional(),
   })
   .strict();
