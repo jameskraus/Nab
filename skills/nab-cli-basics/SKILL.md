@@ -23,15 +23,12 @@ Use this guide to explain the minimal setup (auth token + budget id) and common 
 ## Set auth token (required)
 - Use YNAB Personal Access Tokens only (no OAuth).
 - Get a PAT from https://app.ynab.com/settings/developer.
-- Store tokens in config:
-  - `nab auth token add <PAT>`
-  - or `nab config set --tokens <PAT[,PAT...]>`
-- Set `NAB_TOKENS` (comma-separated) for CI or one-off runs.
+- Store tokens with `nab auth token add <PAT>`.
 
 ## Set budget id (required for most commands)
 - Run `nab budget list --format json` and copy the `id` field.
 - Store a default budget id with `nab config set --budget-id <BUDGET_ID>`.
-- Override per command with `--budget-id <BUDGET_ID>` or set `NAB_BUDGET_ID`.
+- Override per command with `--budget-id <BUDGET_ID>`.
 
 ## Useful config helpers
 - Run `nab config show` to view config (tokens are redacted).
