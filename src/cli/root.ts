@@ -55,7 +55,10 @@ export function createCli(argv: string[]) {
       default: false,
       describe: "Skip interactive confirmation prompts",
     })
-    .group(["budget-id", "format", "quiet", "no-color", "dry-run", "yes"], "Global Options")
+    .group(
+      ["budget-id", "format", "quiet", "no-color", "dry-run", "yes", "help", "version"],
+      "Global Options",
+    )
     .check((argv) => {
       if (typeof argv["budget-id"] === "string" && argv["budget-id"].trim().length === 0) {
         throw new Error("Provide a non-empty --budget-id value.");
