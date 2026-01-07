@@ -2,6 +2,7 @@ import type { CommandModule } from "yargs";
 import type { BudgetSummary } from "ynab";
 
 import type { AppContext } from "@/app/createAppContext";
+import { MissingBudgetIdError } from "@/app/errors";
 import type { CliGlobalArgs } from "@/cli/types";
 import {
   type OutputWriterOptions,
@@ -17,6 +18,10 @@ type BudgetListRow = {
   lastModified: string;
   firstMonth: string;
   lastMonth: string;
+};
+
+type BudgetCurrentRow = {
+  id: string;
 };
 
 type CliArgs = CliGlobalArgs & { appContext?: AppContext };
@@ -67,6 +72,35 @@ export function writeBudgetList(
   });
 }
 
+export function writeBudgetCurrent(
+  budgetId: string,
+  rawFormat?: string,
+  options?: OutputWriterOptions,
+): void {
+  const format = parseOutputFormat(rawFormat, "table");
+  const row: BudgetCurrentRow = { id: budgetId };
+
+  if (format === "json") {
+    createOutputWriter("json", options).write(row);
+    return;
+  }
+
+  if (format === "ids") {
+    createOutputWriter("ids", options).write([budgetId]);
+    return;
+  }
+
+  if (format === "tsv") {
+    createOutputWriter("tsv", options).write([row]);
+    return;
+  }
+
+  createOutputWriter("table", options).write({
+    columns: [fieldColumn("id", { header: "Id" })],
+    rows: [row],
+  });
+}
+
 export const budgetCommand: CommandModule<CliGlobalArgs> = {
   command: "budget <command>",
   describe: "Budgets",
@@ -88,8 +122,13 @@ export const budgetCommand: CommandModule<CliGlobalArgs> = {
       .command({
         command: "current",
         describe: "Show the effective budget (from --budget-id or config)",
-        handler: () => {
-          throw new Error("Not implemented yet (see docs/BEADS.md)");
+        handler: (argv) => {
+          const { appContext, format } = argv as unknown as CliArgs;
+          const ctx = appContext;
+          if (!ctx?.budgetId) {
+            throw new MissingBudgetIdError();
+          }
+          writeBudgetCurrent(ctx.budgetId, format);
         },
       })
       .demandCommand(1, "Specify a budget subcommand")

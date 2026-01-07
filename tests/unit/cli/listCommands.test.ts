@@ -4,7 +4,7 @@ import { expect, test } from "bun:test";
 import type { Account, BudgetSummary, CategoryGroupWithCategories, Payee } from "ynab";
 
 import { writeAccountList } from "@/cli/commands/account";
-import { writeBudgetList } from "@/cli/commands/budget";
+import { writeBudgetCurrent, writeBudgetList } from "@/cli/commands/budget";
 import { writeCategoryList } from "@/cli/commands/category";
 import { writePayeeList } from "@/cli/commands/payee";
 
@@ -39,6 +39,13 @@ test("budget list writes tsv output", () => {
   expect(capture.output()).toBe(
     "firstMonth\tid\tlastModified\tlastMonth\tname\n2025-01-01\tb1\t2026-01-01T00:00:00Z\t2025-12-01\tHome\n",
   );
+});
+
+test("budget current writes tsv output", () => {
+  const capture = createCapture();
+  writeBudgetCurrent("b1", "tsv", { stdout: capture.stream });
+
+  expect(capture.output()).toBe("id\nb1\n");
 });
 
 test("account list writes tsv output", () => {
