@@ -3,9 +3,21 @@ import { createOutputWriter, parseOutputFormat } from "@/io";
 import { fieldColumn } from "@/io/table/columns";
 import type { CommandModule } from "yargs";
 
+const YNAB_API_BASE = "https://api.ynab.com/v1";
+
 type CliArgs = {
   token?: string;
   index?: number;
+};
+
+type TokenCheckStatus = "ok" | "unauthorized" | "rate_limited" | "error";
+
+type TokenCheckRow = {
+  index: number;
+  token: string;
+  status: TokenCheckStatus;
+  detail?: string;
+  retryAfterSeconds?: number;
 };
 
 function writeTokens(tokens: string[], rawFormat?: string): void {
@@ -37,6 +49,107 @@ function writeTokens(tokens: string[], rawFormat?: string): void {
     columns: [fieldColumn("index", { header: "Index" }), fieldColumn("token", { header: "Token" })],
     rows,
   });
+}
+
+function writeTokenChecks(rows: TokenCheckRow[], rawFormat?: string): void {
+  const format = parseOutputFormat(rawFormat, "table");
+
+  if (format === "json") {
+    const writer = createOutputWriter("json");
+    writer.write(rows);
+    return;
+  }
+
+  if (format === "ids") {
+    const writer = createOutputWriter("ids");
+    writer.write(rows.map((row) => row.token));
+    return;
+  }
+
+  const outputRows = rows.map((row) => ({
+    index: row.index,
+    token: row.token,
+    status: row.status,
+    retryAfterSeconds: row.retryAfterSeconds ?? "",
+    detail: row.detail ?? "",
+  }));
+
+  if (format === "tsv") {
+    const writer = createOutputWriter("tsv");
+    writer.write(outputRows);
+    return;
+  }
+
+  const writer = createOutputWriter("table");
+  writer.write({
+    columns: [
+      fieldColumn("index", { header: "Index" }),
+      fieldColumn("token", { header: "Token" }),
+      fieldColumn("status", { header: "Status" }),
+      fieldColumn("retryAfterSeconds", { header: "Retry After (s)" }),
+      fieldColumn("detail", { header: "Detail" }),
+    ],
+    rows: outputRows,
+  });
+}
+
+async function readErrorDetail(response: Response): Promise<string | undefined> {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    try {
+      const payload = (await response.clone().json()) as {
+        error?: { detail?: string; name?: string };
+      };
+      const detail = payload?.error?.detail ?? payload?.error?.name;
+      if (typeof detail === "string" && detail.trim().length > 0) return detail.trim();
+    } catch {
+      // fall through to text parsing
+    }
+  }
+
+  try {
+    const text = await response.text();
+    if (text.trim().length > 0) return text.trim();
+  } catch {
+    // ignore unreadable body
+  }
+
+  return undefined;
+}
+
+async function checkToken(token: string): Promise<Omit<TokenCheckRow, "index" | "token">> {
+  try {
+    const response = await fetch(`${YNAB_API_BASE}/user`, {
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (response.ok) return { status: "ok" };
+
+    const retryAfterHeader = response.headers.get("retry-after");
+    const retryAfterSeconds =
+      retryAfterHeader && Number.isFinite(Number(retryAfterHeader))
+        ? Number(retryAfterHeader)
+        : undefined;
+    const detail = await readErrorDetail(response);
+
+    if (response.status === 401) {
+      return { status: "unauthorized", detail };
+    }
+
+    if (response.status === 429) {
+      return { status: "rate_limited", detail, retryAfterSeconds };
+    }
+
+    return {
+      status: "error",
+      detail: detail ?? `HTTP ${response.status}`,
+    };
+  } catch (err) {
+    return { status: "error", detail: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 export const authCommand: CommandModule = {
@@ -77,6 +190,28 @@ export const authCommand: CommandModule = {
                 const store = new ConfigStore();
                 const config = await store.load();
                 writeTokens(config.tokens ?? [], args.format);
+              },
+            })
+            .command({
+              command: "check",
+              describe: "Check configured tokens against the YNAB API",
+              handler: async (argv) => {
+                const args = argv as { format?: string };
+                const store = new ConfigStore();
+                const config = await store.load();
+                const tokens = config.tokens ?? [];
+
+                if (tokens.length === 0) {
+                  throw new Error("No tokens configured. Add one with `nab auth token add <PAT>`.");
+                }
+
+                const results: TokenCheckRow[] = [];
+                for (const [index, token] of tokens.entries()) {
+                  const outcome = await checkToken(token);
+                  results.push({ index: index + 1, token, ...outcome });
+                }
+
+                writeTokenChecks(results, args.format);
               },
             })
             .command({
