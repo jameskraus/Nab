@@ -1,14 +1,11 @@
 import { expect, test } from "bun:test";
 
+import { loadTestEnv } from "../helpers/testEnv";
+
 const REQUIRED_BUDGET_ID = "06443689-ec9d-45d9-a37a-53dc60014769";
 
-const tokens = process.env.NAB_TOKENS
-  ? process.env.NAB_TOKENS.split(",")
-      .map((token) => token.trim())
-      .filter(Boolean)
-  : [];
+const { tokens, budgetId } = loadTestEnv();
 const token = tokens[0];
-const budgetId = process.env.NAB_BUDGET_ID;
 
 type CliResult = {
   stdout: string;
@@ -182,7 +179,7 @@ async function getWritableTransaction(env: NodeJS.ProcessEnv): Promise<Transacti
 }
 
 if (!token || !budgetId) {
-  test.skip("e2e: set NAB_TOKENS and NAB_BUDGET_ID to run", () => {});
+  test.skip("e2e: set NAB_TOKENS (or run `nab auth token add`) and NAB_BUDGET_ID to run", () => {});
 } else if (budgetId !== REQUIRED_BUDGET_ID) {
   test("e2e: budget id must be the dedicated test budget", () => {
     throw new Error(

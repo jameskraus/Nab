@@ -10,15 +10,12 @@ import type {
 import { YnabClient } from "@/api/YnabClient";
 import { TransactionService } from "@/domain/TransactionService";
 
+import { loadTestEnv } from "../helpers/testEnv";
+
 const REQUIRED_BUDGET_ID = "06443689-ec9d-45d9-a37a-53dc60014769";
 
-const tokens = process.env.NAB_TOKENS
-  ? process.env.NAB_TOKENS.split(",")
-      .map((token) => token.trim())
-      .filter(Boolean)
-  : [];
+const { tokens, budgetId } = loadTestEnv();
 const token = tokens[0];
-const budgetId = process.env.NAB_BUDGET_ID;
 
 function formatDate(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -91,7 +88,7 @@ function pickTransferTransaction(transactions: TransactionDetail[]): Transaction
 }
 
 if (!token || !budgetId) {
-  test.skip("integration: set NAB_TOKENS and NAB_BUDGET_ID to run", () => {});
+  test.skip("integration: set NAB_TOKENS (or run `nab auth token add`) and NAB_BUDGET_ID to run", () => {});
 } else if (budgetId !== REQUIRED_BUDGET_ID) {
   test("integration: budget id must be the dedicated test budget", () => {
     throw new Error(
