@@ -44,15 +44,11 @@ Implementation notes:
 ### 4) Persistence layer
 - `src/config/**`: config file (tokens, default budget id)
 - `src/journal/**`: sqlite journal of applied actions
-- `src/cache/**`: sqlite cache + delta-sync state (`server_knowledge`)
 
 #### Journal DB schema
 - `schema_migrations`: applied migration ids with timestamps
 - `schema_version`: single-row pointer to the latest migration id
 - `history_actions`: journal of applied mutations (payload + inverse patch)
-- `cache_entities`: cached API entities keyed by `(budget_id, entity_type, entity_id)`
-- `cache_state`: per-budget sync state (`server_knowledge`)
-
 ### 5) IO / formatting layer (`src/io/**`)
 Responsibilities:
 - formatting output in `table|json|tsv|ids`
@@ -64,7 +60,6 @@ Responsibilities:
 A single composition root should build all services from config:
 - config store
 - sqlite db
-- cache repo
 - YNAB client
 - domain services
 

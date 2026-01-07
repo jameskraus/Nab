@@ -22,8 +22,6 @@ test("journal db initializes with expected tables", async () => {
   expect(table("schema_migrations")).toBeTruthy();
   expect(table("schema_version")).toBeTruthy();
   expect(table("history_actions")).toBeTruthy();
-  expect(table("cache_entities")).toBeTruthy();
-  expect(table("cache_state")).toBeTruthy();
 
   const version = db
     .query<{ version: string }, []>("select version from schema_version where id = 1")

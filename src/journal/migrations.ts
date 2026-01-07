@@ -16,23 +16,6 @@ const migrations: Migration[] = [
         payload_json text not null,
         inverse_patch_json text
       );
-
-      create table if not exists cache_entities (
-        budget_id text not null,
-        entity_type text not null,
-        entity_id text not null,
-        data_json text not null,
-        updated_at text not null default (datetime('now')),
-        primary key (budget_id, entity_type, entity_id)
-      );
-
-      create table if not exists cache_state (
-        budget_id text not null,
-        resource text not null,
-        server_knowledge integer not null,
-        updated_at text not null default (datetime('now')),
-        primary key (budget_id, resource)
-      );
     `,
   },
 ];

@@ -42,13 +42,13 @@ Some transactions are transfers between two YNAB accounts; these have transfer m
 
 **V1 scope**: `nab tx account set` must error on transfers.
 
-### Delta requests (important for caching)
+### Delta requests
 
-YNAB supports delta requests using `server_knowledge` and `last_knowledge_of_server` so we can efficiently sync changes.
+YNAB supports delta requests using `server_knowledge` and `last_knowledge_of_server` to efficiently fetch changes.
 
 ### Rate limiting
 
-The API token is limited to 200 requests/hour (rolling window). `nab` must cache, dedupe, and be careful in loops.
+The API token is limited to 200 requests/hour (rolling window). Be careful in loops and batch calls.
 
 ## Key endpoints we care about (v1)
 
@@ -64,4 +64,3 @@ Mutations (transactions only, v1):
 - Delete a transaction
 
 > Note: We intentionally leave budgets/payees/scheduled transactions out of scope for v1.
-

@@ -7,7 +7,6 @@ import type { Argv } from "yargs";
 import { accountCommand } from "./commands/account";
 import { authCommand } from "./commands/auth";
 import { budgetCommand } from "./commands/budget";
-import { cacheCommand } from "./commands/cache";
 import { categoryCommand } from "./commands/category";
 import { configCommand } from "./commands/config";
 import { historyCommand } from "./commands/history";
@@ -118,7 +117,6 @@ export function createCli(argv: string[]) {
     .command(authCommand)
     .command(configCommand)
     .command(txCommand)
-    .command(cacheCommand)
     .command(historyCommand)
     .demandCommand(1, "Specify a command")
     .middleware([], true)

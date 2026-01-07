@@ -4,7 +4,7 @@ import path from "node:path";
 /**
  * Resolves the directory for nab local state:
  * - config.json (tokens, default budget id)
- * - nab.sqlite (history + cache)
+ * - nab.sqlite (history)
  */
 export function getConfigDir(): string {
   const override = process.env.NAB_CONFIG_DIR;

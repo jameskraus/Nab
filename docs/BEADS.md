@@ -63,14 +63,12 @@ Key files:
 - `src/api/YnabClient.ts`
 - `src/api/errors.ts`
 
-## Bead 4 — SQLite foundation (journal + cache schema)
+## Bead 4 — SQLite foundation (journal schema)
 Goal: add sqlite db with migrations.
 Scope:
 - create/open sqlite file in config dir
 - migrations to create:
   - `history_actions`
-  - `cache_entities`
-  - `cache_state` (server_knowledge per budget/resource)
 
 Acceptance criteria:
 - db initializes automatically
@@ -79,7 +77,6 @@ Acceptance criteria:
 Key files:
 - `src/journal/db.ts`
 - `src/journal/migrations.ts`
-- `src/cache/**`
 
 ## Bead 5 — Read-only commands (agent-safe)
 Goal: let agents query budgets and transactions.
@@ -136,18 +133,6 @@ Commands:
 Acceptance criteria:
 - after a mutation, `history show` lists it
 - history includes enough data to support a future revert
-
-## Bead 8 — Local cache + delta sync
-Goal: reduce API calls; support fast agent loops.
-Scope:
-- cache transactions/accounts/categories/payees in sqlite
-- use `server_knowledge` + `last_knowledge_of_server` delta requests
-- store per-resource `server_knowledge`
-- read commands optionally served from cache (`--cached`)
-
-Acceptance criteria:
-- `nab tx list --cached` works after `nab cache sync`
-- repeated syncs only fetch deltas
 
 ## Bead 9 — Integration tests (real YNAB budget)
 Goal: ensure end-to-end behavior against the test budget.
