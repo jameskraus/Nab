@@ -5,6 +5,8 @@ import type { CommandModule } from "yargs";
 
 const YNAB_API_BASE = "https://api.ynab.com/v1";
 
+type TokenCheckEndpoint = "user" | "budgets" | "transactions";
+
 type CliArgs = {
   token?: string;
   index?: number;
@@ -117,9 +119,22 @@ async function readErrorDetail(response: Response): Promise<string | undefined> 
   return undefined;
 }
 
-async function checkToken(token: string): Promise<Omit<TokenCheckRow, "index" | "token">> {
+function buildEndpointUrl(endpoint: TokenCheckEndpoint, budgetId?: string): string {
+  if (endpoint === "user") return `${YNAB_API_BASE}/user`;
+  if (endpoint === "budgets") return `${YNAB_API_BASE}/budgets`;
+  if (!budgetId) {
+    throw new Error("Provide --budget-id when using --endpoint transactions.");
+  }
+  return `${YNAB_API_BASE}/budgets/${encodeURIComponent(budgetId)}/transactions?limit=1`;
+}
+
+async function checkToken(
+  token: string,
+  endpoint: TokenCheckEndpoint,
+  budgetId?: string,
+): Promise<Omit<TokenCheckRow, "index" | "token">> {
   try {
-    const response = await fetch(`${YNAB_API_BASE}/user`, {
+    const response = await fetch(buildEndpointUrl(endpoint, budgetId), {
       headers: {
         accept: "application/json",
         authorization: `Bearer ${token}`,
@@ -195,8 +210,19 @@ export const authCommand: CommandModule = {
             .command({
               command: "check",
               describe: "Check configured tokens against the YNAB API",
+              builder: (yyy) =>
+                yyy.option("endpoint", {
+                  choices: ["user", "budgets", "transactions"] as const,
+                  default: "budgets",
+                  describe: "Endpoint to probe (transactions requires --budget-id)",
+                }),
               handler: async (argv) => {
-                const args = argv as { format?: string };
+                const args = argv as {
+                  format?: string;
+                  endpoint?: TokenCheckEndpoint;
+                  "budget-id"?: string;
+                  budgetId?: string;
+                };
                 const store = new ConfigStore();
                 const config = await store.load();
                 const tokens = config.tokens ?? [];
@@ -205,9 +231,16 @@ export const authCommand: CommandModule = {
                   throw new Error("No tokens configured. Add one with `nab auth token add <PAT>`.");
                 }
 
+                const endpoint = args.endpoint ?? "budgets";
+                const budgetId =
+                  args["budget-id"] ??
+                  args.budgetId ??
+                  process.env.NAB_BUDGET_ID ??
+                  config.budgetId;
+
                 const results: TokenCheckRow[] = [];
                 for (const [index, token] of tokens.entries()) {
-                  const outcome = await checkToken(token);
+                  const outcome = await checkToken(token, endpoint, budgetId);
                   results.push({ index: index + 1, token, ...outcome });
                 }
 
