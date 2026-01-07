@@ -10,6 +10,7 @@
     "nab": "bun src/cli/index.ts",
     "dev": "bun --hot src/cli/index.ts",
     "start": "bun src/cli/index.ts",
+    "build": "bun build --compile --outfile=dist/nab src/cli/index.ts",
     "lint": "biome check .",
     "format": "biome format . --write",
     "check": "bun run lint && bun run typecheck && bun test",
