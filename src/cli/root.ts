@@ -97,6 +97,10 @@ export function createCli(argv: string[]) {
       });
     })
     .fail((msg, err, y) => {
+      if (!err && msg === "Specify a command") {
+        y.showHelp("log");
+        process.exit(0);
+      }
       const error = err ?? new Error(msg);
       const exitCode = exitCodeForError(error);
 
