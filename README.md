@@ -6,9 +6,7 @@ It is intentionally designed as a **"porcelain" CLI for AI agents**:
 - high-level, human/agent-meaningful subcommands (approve, categorize, add memo, clear, delete, etc.)
 - **safe defaults** for mutations (explicit IDs required, `--dry-run` first-class, `--yes` to apply)
 - **scripting-friendly output** (JSON/TSV/ids)
-- local SQLite for **history/journaling** and **API caching**
-
-> Repo status: scaffolded for incremental development. Most commands are placeholders until their bead is implemented.
+- local SQLite for **history/journaling**
 
 ## Quick start
 
