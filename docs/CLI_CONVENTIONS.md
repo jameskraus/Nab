@@ -12,6 +12,8 @@ We do not preserve backwards compatibility in the current greenfield phase.
 - When `--format json` is specified, output must be stable enough for machines to parse, but **schema stability is not guaranteed** (agents can consult `--help`).
 - `stdout` is reserved for the primary command output.
 - `stderr` is reserved for errors and diagnostics.
+- Monetary values are formatted using the budget's `currency_format` by default.
+  - JSON includes display fields like `amount_display` and raw milliunits with a `raw_` prefix.
 
 Supported formats:
 - `table` (default, TTY)

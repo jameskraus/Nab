@@ -41,11 +41,11 @@ Responsibilities:
 - enforce invariants and safety checks (e.g. block transfers for `account set`)
 - implement idempotency (no-op when already in desired state)
 - produce inverse patches for journaling
+- cache and resolve budget currency formats for display/input parsing
 
 ### 4) API client layer (`src/api/**`)
 Responsibilities:
 - thin wrapper over YNAB API / SDK
-- normalization: milliunits <-> decimal, date parsing/formatting
 - consistent error mapping (`401` -> Unauthorized, `404` -> NotFound, `429` -> RateLimited)
 - retry/backoff (ONLY where safe)
 
@@ -54,7 +54,7 @@ Implementation notes:
 - `YnabClient` wraps multiple tokens, rotates on rate limits, disables unauthorized tokens, and exposes a unified client.
 
 ### 5) Persistence layer
-- `src/config/**`: config file (tokens, OAuth config, default budget id, auth method)
+- `src/config/**`: config file (tokens, OAuth config, default budget id, auth method, cached budget currency formats)
 - `src/journal/**`: sqlite journal of applied actions
 
 #### Journal DB schema
@@ -72,6 +72,7 @@ Responsibilities:
 Responsibilities:
 - formatting output in `table|json|tsv|ids`
 - locale-friendly date formatting for humans
+- currency formatting based on the budget's `currency_format`
 - machine-friendly JSON for agents
 
 ## Global middleware behavior (what gets `appContext`)

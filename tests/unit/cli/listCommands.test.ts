@@ -1,7 +1,13 @@
 import { Writable } from "node:stream";
 
 import { expect, test } from "bun:test";
-import type { Account, BudgetSummary, CategoryGroupWithCategories, Payee } from "ynab";
+import type {
+  Account,
+  BudgetSummary,
+  CategoryGroupWithCategories,
+  CurrencyFormat,
+  Payee,
+} from "ynab";
 
 import { writeAccountList } from "@/cli/commands/account";
 import { writeBudgetCurrent, writeBudgetList } from "@/cli/commands/budget";
@@ -21,6 +27,17 @@ function createCapture() {
     output: () => data,
   };
 }
+
+const USD_FORMAT: CurrencyFormat = {
+  iso_code: "USD",
+  example_format: "$1,234.56",
+  decimal_digits: 2,
+  decimal_separator: ".",
+  symbol_first: true,
+  group_separator: ",",
+  currency_symbol: "$",
+  display_symbol: true,
+};
 
 test("budget list writes tsv output", () => {
   const budgets: BudgetSummary[] = [
@@ -65,10 +82,10 @@ test("account list writes tsv output", () => {
   ];
 
   const capture = createCapture();
-  writeAccountList(accounts, "tsv", { stdout: capture.stream });
+  writeAccountList(accounts, "tsv", { stdout: capture.stream, currencyFormat: USD_FORMAT });
 
   expect(capture.output()).toBe(
-    "balance\tclosed\tid\tname\tonBudget\ttype\n123000\tfalse\ta1\tChecking\ttrue\tchecking\n",
+    "balance\tclosed\tid\tname\tonBudget\ttype\n$123.00\tfalse\ta1\tChecking\ttrue\tchecking\n",
   );
 });
 
@@ -95,10 +112,10 @@ test("category list writes tsv output", () => {
   ];
 
   const capture = createCapture();
-  writeCategoryList(groups, "tsv", { stdout: capture.stream });
+  writeCategoryList(groups, "tsv", { stdout: capture.stream, currencyFormat: USD_FORMAT });
 
   expect(capture.output()).toBe(
-    "balance\tdeleted\tgroup\thidden\tid\tname\n500000\tfalse\tBills\tfalse\tc1\tRent\n",
+    "balance\tdeleted\tgroup\thidden\tid\tname\n$500.00\tfalse\tBills\tfalse\tc1\tRent\n",
   );
 });
 

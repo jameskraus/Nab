@@ -2,6 +2,7 @@ import { API } from "ynab";
 import type {
   AccountsResponse,
   ApiResponse,
+  BudgetSettingsResponse,
   BudgetSummaryResponse,
   CategoriesResponse,
   PatchTransactionsWrapper,
@@ -17,6 +18,9 @@ export type YnabSdk = {
   budgets: {
     getBudgetsRaw: (params: { includeAccounts?: boolean }) => Promise<
       ApiResponse<BudgetSummaryResponse>
+    >;
+    getBudgetSettingsByIdRaw: (params: { budgetId: string }) => Promise<
+      ApiResponse<BudgetSettingsResponse>
     >;
   };
   accounts: {

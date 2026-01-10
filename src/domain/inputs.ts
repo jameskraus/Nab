@@ -1,12 +1,41 @@
-import type { TransactionClearedStatus, TransactionFlagColor } from "ynab";
+import type { CurrencyFormat, TransactionClearedStatus, TransactionFlagColor } from "ynab";
 
 const AMOUNT_REGEX = /^[+-]?\d+(?:\.\d{1,3})?$/;
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 const CLEARED_STATUSES: TransactionClearedStatus[] = ["cleared", "uncleared", "reconciled"];
 const FLAG_COLORS: TransactionFlagColor[] = ["red", "orange", "yellow", "green", "blue", "purple"];
 
-export function parseAmountToMilliunits(input: string): number {
-  const value = input.trim();
+const USD_CURRENCY_FORMAT: CurrencyFormat = {
+  iso_code: "USD",
+  example_format: "$1,234.56",
+  decimal_digits: 2,
+  decimal_separator: ".",
+  symbol_first: true,
+  group_separator: ",",
+  currency_symbol: "$",
+  display_symbol: true,
+};
+
+export function parseAmountToMilliunits(
+  input: string,
+  currencyFormat: CurrencyFormat = USD_CURRENCY_FORMAT,
+): number {
+  if (currencyFormat.iso_code !== "USD") {
+    throw new Error(`Amount parsing for currency ${currencyFormat.iso_code} is not supported yet.`);
+  }
+
+  let value = input.trim();
+  if (currencyFormat.currency_symbol) {
+    value = value.split(currencyFormat.currency_symbol).join("");
+  }
+  value = value.replaceAll(" ", "");
+  if (currencyFormat.group_separator) {
+    value = value.split(currencyFormat.group_separator).join("");
+  }
+  if (currencyFormat.decimal_separator !== ".") {
+    value = value.replace(currencyFormat.decimal_separator, ".");
+  }
+
   if (!AMOUNT_REGEX.test(value)) {
     throw new Error("Amount must be a number with up to 3 decimal places.");
   }

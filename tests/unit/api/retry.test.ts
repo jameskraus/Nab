@@ -17,6 +17,9 @@ const stubSdk = (overrides: ApiOverrides): YnabSdk => ({
     getBudgetsRaw: async () => {
       throw new Error("Not implemented");
     },
+    getBudgetSettingsByIdRaw: async () => {
+      throw new Error("Not implemented");
+    },
     ...overrides.budgets,
   },
   accounts: {

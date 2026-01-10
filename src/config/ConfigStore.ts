@@ -51,6 +51,7 @@ export class ConfigStore {
         budgetId: undefined,
         oauth: undefined,
         authMethod: undefined,
+        budgetCurrencyFormats: undefined,
       });
     }
 

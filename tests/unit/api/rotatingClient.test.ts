@@ -13,6 +13,10 @@ class StubClient implements YnabApiClient {
     return this.handler(this);
   }
 
+  async getBudgetSettings(): Promise<never> {
+    throw new Error("not implemented");
+  }
+
   async listAccounts(): Promise<never> {
     throw new Error("not implemented");
   }

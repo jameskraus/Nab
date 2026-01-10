@@ -1,5 +1,6 @@
 import type {
   Account,
+  BudgetSettings,
   BudgetSummary,
   CategoryGroupWithCategories,
   NewTransaction,
@@ -166,6 +167,10 @@ export class YnabClient implements YnabApiClient {
 
   async listBudgets(): Promise<BudgetSummary[]> {
     return this.execute((client) => client.listBudgets());
+  }
+
+  async getBudgetSettings(budgetId: string): Promise<BudgetSettings> {
+    return this.execute((client) => client.getBudgetSettings(budgetId));
   }
 
   async listAccounts(budgetId: string): Promise<Account[]> {

@@ -1,6 +1,8 @@
 import type {
   Account,
   ApiResponse,
+  BudgetSettings,
+  BudgetSettingsResponse,
   BudgetSummary,
   CategoryGroupWithCategories,
   NewTransaction,
@@ -42,6 +44,7 @@ export type SingleTokenYnabClientOptions = {
 
 export interface YnabApiClient {
   listBudgets(): Promise<BudgetSummary[]>;
+  getBudgetSettings(budgetId: string): Promise<BudgetSettings>;
   listAccounts(budgetId: string): Promise<Account[]>;
   listCategories(budgetId: string): Promise<CategoryGroupWithCategories[]>;
   listPayees(budgetId: string): Promise<Payee[]>;
@@ -167,6 +170,15 @@ export class SingleTokenYnabClient implements YnabApiClient {
     return this.traced("listBudgets", async () => {
       const response = await this.executeGet(() => this.api.budgets.getBudgetsRaw({}));
       return response.data.budgets;
+    });
+  }
+
+  async getBudgetSettings(budgetId: string): Promise<BudgetSettings> {
+    return this.traced("getBudgetSettings", async () => {
+      const response = await this.executeGet<BudgetSettingsResponse>(() =>
+        this.api.budgets.getBudgetSettingsByIdRaw({ budgetId }),
+      );
+      return response.data.settings;
     });
   }
 

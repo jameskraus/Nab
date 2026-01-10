@@ -21,7 +21,9 @@ Amounts are represented in **milliunits**:
 - `1000` = 1 unit of currency ($1.00)
 - `-220` = -$0.22
 
-`nab` will accept user-facing decimal amounts (e.g. `-12.34`) and convert to milliunits.
+`nab` accepts user-facing amounts using the **budget currency format** (currently USD-only parsing) and converts to milliunits.
+For output, `nab` renders formatted currency strings by default (table/tsv and JSON),
+and includes raw milliunit values with a `raw_` prefix alongside display fields (e.g. `amount_display`).
 
 ### Dates
 

@@ -1,11 +1,12 @@
 import type { CommandModule } from "yargs";
-import type { NewTransaction, Payee, TransactionDetail } from "ynab";
+import type { CurrencyFormat, NewTransaction, Payee, TransactionDetail } from "ynab";
 
 import type { AppContext } from "@/app/createAppContext";
 import { normalizeIds, requireApplyConfirmation } from "@/cli/mutations";
 import type { CliGlobalArgs } from "@/cli/types";
 import { TransactionService } from "@/domain/TransactionService";
 import type { TransactionMutationResult } from "@/domain/TransactionService";
+import { resolveBudgetCurrencyFormat } from "@/domain/budgetCurrency";
 import {
   parseAmountToMilliunits,
   parseClearedStatus,
@@ -17,6 +18,7 @@ import {
   type OutputWriterOptions,
   createOutputWriter,
   fieldColumn,
+  formatCurrency,
   formatDate,
   parseOutputFormat,
 } from "@/io";
@@ -104,7 +106,7 @@ type TransactionListRow = {
   payee: string;
   category: string;
   memo: string;
-  amount: number;
+  amount: string;
 };
 
 type TransactionFilters = {
@@ -119,6 +121,23 @@ type MutationRow = {
 };
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+type SubTransaction = NonNullable<TransactionDetail["subtransactions"]>[number];
+
+type SubTransactionOutput = Omit<SubTransaction, "amount"> & {
+  amount: string;
+  amount_display: string;
+  raw_amount: number;
+};
+
+type TransactionOutput = Omit<TransactionDetail, "amount" | "subtransactions"> & {
+  amount: string;
+  amount_display: string;
+  raw_amount: number;
+  subtransactions?: SubTransactionOutput[] | null;
+};
+
+type MoneyWriterOptions = OutputWriterOptions & { currencyFormat?: CurrencyFormat | null };
 
 async function recordMutationHistory(
   ctx: AppContext | undefined,
@@ -155,7 +174,41 @@ async function finalizeMutation(
   writeMutationResults(results, format);
 }
 
-function transactionRows(transactions: TransactionDetail[]): TransactionListRow[] {
+function decorateSubtransaction(
+  subtransaction: SubTransaction,
+  currencyFormat?: CurrencyFormat | null,
+): SubTransactionOutput {
+  const amountDisplay = formatCurrency(subtransaction.amount, currencyFormat);
+  return {
+    ...subtransaction,
+    amount: amountDisplay,
+    amount_display: amountDisplay,
+    raw_amount: subtransaction.amount,
+  };
+}
+
+function decorateTransaction(
+  transaction: TransactionDetail,
+  currencyFormat?: CurrencyFormat | null,
+): TransactionOutput {
+  const amountDisplay = formatCurrency(transaction.amount, currencyFormat);
+  const subtransactions = Array.isArray(transaction.subtransactions)
+    ? transaction.subtransactions.map((sub) => decorateSubtransaction(sub, currencyFormat))
+    : transaction.subtransactions;
+
+  return {
+    ...transaction,
+    amount: amountDisplay,
+    amount_display: amountDisplay,
+    raw_amount: transaction.amount,
+    subtransactions,
+  };
+}
+
+function transactionRows(
+  transactions: TransactionDetail[],
+  currencyFormat?: CurrencyFormat | null,
+): TransactionListRow[] {
   return transactions.map((transaction) => ({
     id: transaction.id,
     date: formatDate(transaction.date),
@@ -163,7 +216,7 @@ function transactionRows(transactions: TransactionDetail[]): TransactionListRow[
     payee: transaction.payee_name ?? "",
     category: transaction.category_id ? (transaction.category_name ?? "") : "Uncategorized",
     memo: transaction.memo ?? "",
-    amount: transaction.amount,
+    amount: formatCurrency(transaction.amount, currencyFormat),
   }));
 }
 
@@ -194,28 +247,34 @@ export function applyTransactionFilters(
 export function writeTransactionList(
   transactions: TransactionDetail[],
   rawFormat?: string,
-  options?: OutputWriterOptions,
+  options?: MoneyWriterOptions,
 ): void {
   const format = parseOutputFormat(rawFormat, "table");
+  const { currencyFormat, ...writerOptions } = options ?? {};
 
   if (format === "json") {
-    createOutputWriter("json", options).write(transactions);
+    const decorated = transactions.map((transaction) =>
+      decorateTransaction(transaction, currencyFormat),
+    );
+    createOutputWriter("json", writerOptions).write(decorated);
     return;
   }
 
   if (format === "ids") {
-    createOutputWriter("ids", options).write(transactions.map((transaction) => transaction.id));
+    createOutputWriter("ids", writerOptions).write(
+      transactions.map((transaction) => transaction.id),
+    );
     return;
   }
 
-  const rows = transactionRows(transactions);
+  const rows = transactionRows(transactions, currencyFormat);
 
   if (format === "tsv") {
-    createOutputWriter("tsv", options).write(rows);
+    createOutputWriter("tsv", writerOptions).write(rows);
     return;
   }
 
-  createOutputWriter("table", options).write({
+  createOutputWriter("table", writerOptions).write({
     columns: transactionColumns(),
     rows,
   });
@@ -224,28 +283,31 @@ export function writeTransactionList(
 export function writeTransactionDetail(
   transaction: TransactionDetail,
   rawFormat?: string,
-  options?: OutputWriterOptions,
+  options?: MoneyWriterOptions,
 ): void {
   const format = parseOutputFormat(rawFormat, "table");
+  const { currencyFormat, ...writerOptions } = options ?? {};
 
   if (format === "json") {
-    createOutputWriter("json", options).write(transaction);
+    createOutputWriter("json", writerOptions).write(
+      decorateTransaction(transaction, currencyFormat),
+    );
     return;
   }
 
   if (format === "ids") {
-    createOutputWriter("ids", options).write([transaction.id]);
+    createOutputWriter("ids", writerOptions).write([transaction.id]);
     return;
   }
 
-  const rows = transactionRows([transaction]);
+  const rows = transactionRows([transaction], currencyFormat);
 
   if (format === "tsv") {
-    createOutputWriter("tsv", options).write(rows);
+    createOutputWriter("tsv", writerOptions).write(rows);
     return;
   }
 
-  createOutputWriter("table", options).write({
+  createOutputWriter("table", writerOptions).write({
     columns: transactionColumns(),
     rows,
   });
@@ -362,7 +424,8 @@ export const txCommand: CommandModule<CliGlobalArgs> = {
           }
           const transactions = await ctx.ynab.listTransactions(ctx.budgetId, sinceDate);
           const filtered = applyTransactionFilters(transactions, { accountId, uncategorized });
-          writeTransactionList(filtered, format);
+          const currencyFormat = await resolveBudgetCurrencyFormat(ctx, ctx.budgetId);
+          writeTransactionList(filtered, format, { currencyFormat });
         },
       })
       .command({
@@ -377,7 +440,8 @@ export const txCommand: CommandModule<CliGlobalArgs> = {
             throw new Error("Missing budget context for transaction get.");
           }
           const transaction = await ctx.ynab.getTransaction(ctx.budgetId, id);
-          writeTransactionDetail(transaction, format);
+          const currencyFormat = await resolveBudgetCurrencyFormat(ctx, ctx.budgetId);
+          writeTransactionDetail(transaction, format, { currencyFormat });
         },
       })
       .command({
@@ -444,9 +508,6 @@ export const txCommand: CommandModule<CliGlobalArgs> = {
               if (typeof argv.date === "string") {
                 parseDateOnly(argv.date);
               }
-              if (typeof argv.amount === "string") {
-                parseAmountToMilliunits(argv.amount);
-              }
               return true;
             }),
         handler: async (argv) => {
@@ -474,6 +535,7 @@ export const txCommand: CommandModule<CliGlobalArgs> = {
           }
 
           requireApplyConfirmation(Boolean(dryRun), Boolean(yes));
+          const currencyFormat = await resolveBudgetCurrencyFormat(ctx, ctx.budgetId);
 
           let resolvedAccountId = accountId;
           if (!resolvedAccountId && accountName) {
@@ -510,7 +572,7 @@ export const txCommand: CommandModule<CliGlobalArgs> = {
           }
 
           const parsedDate = date ? parseDateOnly(date) : undefined;
-          const milliunits = amount ? parseAmountToMilliunits(amount) : undefined;
+          const milliunits = amount ? parseAmountToMilliunits(amount, currencyFormat) : undefined;
 
           const transaction: NewTransaction = {
             account_id: resolvedAccountId,
@@ -542,7 +604,7 @@ export const txCommand: CommandModule<CliGlobalArgs> = {
               [{ id: created.id, patch: { delete: true } }],
             );
           }
-          writeTransactionDetail(created, format);
+          writeTransactionDetail(created, format, { currencyFormat });
         },
       })
 
@@ -1213,9 +1275,6 @@ export const txCommand: CommandModule<CliGlobalArgs> = {
                     if (ids.length !== 1) {
                       throw new Error("Provide exactly one --id value for amount set.");
                     }
-                    if (typeof argv.amount === "string") {
-                      parseAmountToMilliunits(argv.amount);
-                    }
                     return true;
                   }),
               handler: async (argv) => {
@@ -1228,8 +1287,8 @@ export const txCommand: CommandModule<CliGlobalArgs> = {
 
                 const ids = normalizeIds(id);
                 requireApplyConfirmation(Boolean(dryRun), Boolean(yes));
-
-                const milliunits = parseAmountToMilliunits(amount);
+                const currencyFormat = await resolveBudgetCurrencyFormat(ctx, ctx.budgetId);
+                const milliunits = parseAmountToMilliunits(amount, currencyFormat);
 
                 const service = new TransactionService(ctx.ynab, ctx.budgetId);
                 const results = await service.applyPatch(ids, { amount: milliunits }, { dryRun });

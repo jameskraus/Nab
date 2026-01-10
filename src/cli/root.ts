@@ -87,6 +87,7 @@ export function createCli(argv: string[]) {
       }
       const isBudgetList = command === "budget" && subcommand === "list";
       const isBudgetCurrent = command === "budget" && subcommand === "current";
+      const isBudgetCurrency = command === "budget" && subcommand === "currency";
       const isReadOnlyList =
         (command === "account" || command === "category" || command === "payee") &&
         subcommand === "list";
@@ -94,7 +95,13 @@ export function createCli(argv: string[]) {
 
       const requireToken = !isBudgetCurrent;
       const requireBudgetId = !(isBudgetList || isBudgetCurrent);
-      const createDb = !(isBudgetList || isBudgetCurrent || isReadOnlyList || isTxReadOnly);
+      const createDb = !(
+        isBudgetList ||
+        isBudgetCurrent ||
+        isBudgetCurrency ||
+        isReadOnlyList ||
+        isTxReadOnly
+      );
 
       // Attach for future handlers; throws on missing auth context.
       (argv as { appContext?: unknown }).appContext = await createAppContext({

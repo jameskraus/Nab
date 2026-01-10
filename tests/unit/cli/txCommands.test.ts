@@ -1,7 +1,7 @@
 import { Writable } from "node:stream";
 
 import { expect, test } from "bun:test";
-import type { TransactionDetail } from "ynab";
+import type { CurrencyFormat, TransactionDetail } from "ynab";
 
 import {
   applyTransactionFilters,
@@ -22,6 +22,17 @@ function createCapture() {
     output: () => data,
   };
 }
+
+const USD_FORMAT: CurrencyFormat = {
+  iso_code: "USD",
+  example_format: "$1,234.56",
+  decimal_digits: 2,
+  decimal_separator: ".",
+  symbol_first: true,
+  group_separator: ",",
+  currency_symbol: "$",
+  display_symbol: true,
+};
 
 function makeTransaction(overrides: Partial<TransactionDetail>): TransactionDetail {
   return {
@@ -47,10 +58,13 @@ test("transaction list writes tsv output", () => {
   });
 
   const capture = createCapture();
-  writeTransactionList([transaction], "tsv", { stdout: capture.stream });
+  writeTransactionList([transaction], "tsv", {
+    stdout: capture.stream,
+    currencyFormat: USD_FORMAT,
+  });
 
   expect(capture.output()).toBe(
-    "account\tamount\tcategory\tdate\tid\tmemo\tpayee\nChecking\t-5000\tGroceries\t2026-01-01\tt1\tLunch\tMarket\n",
+    "account\tamount\tcategory\tdate\tid\tmemo\tpayee\nChecking\t-$5.00\tGroceries\t2026-01-01\tt1\tLunch\tMarket\n",
   );
 });
 

@@ -1,13 +1,19 @@
 import type { CommandModule } from "yargs";
-import type { BudgetSummary } from "ynab";
+import type { BudgetSummary, CurrencyFormat } from "ynab";
 
 import type { AppContext } from "@/app/createAppContext";
 import { MissingBudgetIdError } from "@/app/errors";
 import type { CliGlobalArgs } from "@/cli/types";
 import {
+  cacheBudgetCurrencyFormats,
+  resolveBudgetCurrencyFormat,
+  setBudgetCurrencyFormat,
+} from "@/domain/budgetCurrency";
+import {
   type OutputWriterOptions,
   createOutputWriter,
   fieldColumn,
+  formatCurrency,
   formatDate,
   parseOutputFormat,
 } from "@/io";
@@ -25,6 +31,16 @@ type BudgetCurrentRow = {
 };
 
 type CliArgs = CliGlobalArgs & { appContext?: AppContext };
+
+type CurrencyRow = {
+  key: string;
+  value: string;
+};
+
+type BudgetCurrencyPayload = {
+  budgetId: string;
+  currency_format: CurrencyFormat;
+};
 
 function budgetRows(budgets: BudgetSummary[]): BudgetListRow[] {
   return budgets.map((budget) => ({
@@ -101,6 +117,52 @@ export function writeBudgetCurrent(
   });
 }
 
+function currencyRows(format: CurrencyFormat, budgetId: string): CurrencyRow[] {
+  return [
+    { key: "budgetId", value: budgetId },
+    { key: "iso_code", value: format.iso_code },
+    { key: "example_format", value: format.example_format },
+    { key: "decimal_digits", value: String(format.decimal_digits) },
+    { key: "decimal_separator", value: format.decimal_separator },
+    { key: "symbol_first", value: String(format.symbol_first) },
+    { key: "group_separator", value: format.group_separator },
+    { key: "currency_symbol", value: format.currency_symbol },
+    { key: "display_symbol", value: String(format.display_symbol) },
+  ];
+}
+
+export function writeBudgetCurrency(
+  budgetId: string,
+  currencyFormat: CurrencyFormat,
+  rawFormat?: string,
+  options?: OutputWriterOptions,
+): void {
+  const format = parseOutputFormat(rawFormat, "table");
+  const payload: BudgetCurrencyPayload = { budgetId, currency_format: currencyFormat };
+
+  if (format === "json") {
+    createOutputWriter("json", options).write(payload);
+    return;
+  }
+
+  if (format === "ids") {
+    createOutputWriter("ids", options).write([currencyFormat.iso_code]);
+    return;
+  }
+
+  const rows = currencyRows(currencyFormat, budgetId);
+
+  if (format === "tsv") {
+    createOutputWriter("tsv", options).write(rows);
+    return;
+  }
+
+  createOutputWriter("table", options).write({
+    columns: [fieldColumn("key", { header: "Key" }), fieldColumn("value", { header: "Value" })],
+    rows,
+  });
+}
+
 export const budgetCommand: CommandModule<CliGlobalArgs> = {
   command: "budget <command>",
   describe: "Budgets",
@@ -116,6 +178,7 @@ export const budgetCommand: CommandModule<CliGlobalArgs> = {
             throw new Error("Missing YNAB client in app context.");
           }
           const budgets = await ctx.ynab.listBudgets();
+          await cacheBudgetCurrencyFormats(ctx, budgets);
           writeBudgetList(budgets, format);
         },
       })
@@ -130,6 +193,138 @@ export const budgetCommand: CommandModule<CliGlobalArgs> = {
           }
           writeBudgetCurrent(ctx.budgetId, format);
         },
+      })
+      .command({
+        command: "currency <command>",
+        describe: "Manage budget currency format",
+        builder: (yy) =>
+          yy
+            .command({
+              command: "show",
+              describe: "Show the cached budget currency format",
+              handler: async (argv) => {
+                const { appContext, format } = argv as unknown as CliArgs;
+                const ctx = appContext;
+                if (!ctx?.budgetId) {
+                  throw new MissingBudgetIdError();
+                }
+                const currencyFormat = await resolveBudgetCurrencyFormat(ctx, ctx.budgetId);
+                writeBudgetCurrency(ctx.budgetId, currencyFormat, format);
+              },
+            })
+            .command({
+              command: "refresh",
+              describe: "Refresh the budget currency format from YNAB",
+              handler: async (argv) => {
+                const { appContext, format } = argv as unknown as CliArgs;
+                const ctx = appContext;
+                if (!ctx?.budgetId) {
+                  throw new MissingBudgetIdError();
+                }
+                const currencyFormat = await resolveBudgetCurrencyFormat(ctx, ctx.budgetId, {
+                  refresh: true,
+                });
+                writeBudgetCurrency(ctx.budgetId, currencyFormat, format);
+              },
+            })
+            .command({
+              command: "set",
+              describe: "Override the cached budget currency format",
+              builder: (yyy) =>
+                yyy
+                  .option("iso-code", {
+                    type: "string",
+                    demandOption: true,
+                    describe: "ISO currency code (e.g. USD)",
+                  })
+                  .option("decimal-digits", {
+                    type: "number",
+                    demandOption: true,
+                    describe: "Decimal digits (0-3)",
+                  })
+                  .option("decimal-separator", {
+                    type: "string",
+                    demandOption: true,
+                    describe: "Decimal separator",
+                  })
+                  .option("group-separator", {
+                    type: "string",
+                    demandOption: true,
+                    describe: "Group/thousands separator",
+                  })
+                  .option("currency-symbol", {
+                    type: "string",
+                    demandOption: true,
+                    describe: "Currency symbol",
+                  })
+                  .option("symbol-first", {
+                    type: "boolean",
+                    default: true,
+                    describe: "Place currency symbol before amount",
+                  })
+                  .option("display-symbol", {
+                    type: "boolean",
+                    default: true,
+                    describe: "Include currency symbol in formatted output",
+                  })
+                  .option("example-format", {
+                    type: "string",
+                    describe: "Example format (optional)",
+                  })
+                  .check((argv) => {
+                    if (typeof argv["decimal-digits"] === "number") {
+                      if (argv["decimal-digits"] < 0 || argv["decimal-digits"] > 3) {
+                        throw new Error("Provide --decimal-digits between 0 and 3.");
+                      }
+                    }
+                    return true;
+                  }),
+              handler: async (argv) => {
+                const args = argv as unknown as CliArgs & {
+                  "iso-code": string;
+                  "decimal-digits": number;
+                  "decimal-separator": string;
+                  "group-separator": string;
+                  "currency-symbol": string;
+                  "symbol-first": boolean;
+                  "display-symbol": boolean;
+                  "example-format"?: string;
+                };
+                const { appContext, format } = args;
+                const ctx = appContext;
+                if (!ctx?.budgetId) {
+                  throw new MissingBudgetIdError();
+                }
+
+                const currencyFormat: CurrencyFormat = {
+                  iso_code: args["iso-code"],
+                  decimal_digits: args["decimal-digits"],
+                  decimal_separator: args["decimal-separator"],
+                  group_separator: args["group-separator"],
+                  currency_symbol: args["currency-symbol"],
+                  symbol_first: Boolean(args["symbol-first"]),
+                  display_symbol: Boolean(args["display-symbol"]),
+                  example_format:
+                    args["example-format"] ??
+                    formatCurrency(1234567, {
+                      iso_code: args["iso-code"],
+                      decimal_digits: args["decimal-digits"],
+                      decimal_separator: args["decimal-separator"],
+                      group_separator: args["group-separator"],
+                      currency_symbol: args["currency-symbol"],
+                      symbol_first: Boolean(args["symbol-first"]),
+                      display_symbol: Boolean(args["display-symbol"]),
+                      example_format: "sample",
+                    }),
+                };
+
+                await setBudgetCurrencyFormat(ctx, ctx.budgetId, currencyFormat);
+                writeBudgetCurrency(ctx.budgetId, currencyFormat, format);
+              },
+            })
+            .demandCommand(1, "Specify a currency subcommand")
+            .strict(),
+        handler: () => {},
       })
       .demandCommand(1, "Specify a budget subcommand")
       .strict(),
