@@ -112,8 +112,9 @@ export async function createAppContext(options: AppContextOptions = {}): Promise
     if (!oauthToken?.accessToken) {
       if (requireToken) throw new MissingOAuthTokenError();
     } else if (requireToken && isTokenExpiring(oauthToken.expiresAt)) {
-      const clientId = normalize(env.NAB_OAUTH_CLIENT_ID) ?? config.oauth?.clientId;
-      const clientSecret = normalize(env.NAB_OAUTH_CLIENT_SECRET) ?? config.oauth?.clientSecret;
+      const clientId = normalize(env.NAB_OAUTH_CLIENT_ID) ?? normalize(config.oauth?.clientId);
+      const clientSecret =
+        normalize(env.NAB_OAUTH_CLIENT_SECRET) ?? normalize(config.oauth?.clientSecret);
       const refreshToken = oauthToken.refreshToken;
 
       if (!clientId) throw new MissingOAuthClientIdError();
