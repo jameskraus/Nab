@@ -1201,8 +1201,13 @@ export const txCommand: CommandModule<CliGlobalArgs> = {
                   })
                   .option("payee-name", {
                     type: "string",
-                    describe: "Payee name (must resolve unambiguously)",
+                    describe:
+                      'Payee name (must resolve unambiguously). For transfers, use "Transfer : <Account Name>".',
                   })
+                  .example(
+                    'nab tx payee set --id <TX_ID> --payee-name "Transfer : Checking"',
+                    "Convert a transaction into a transfer (YNAB links/creates the other side).",
+                  )
                   .check((argv) => {
                     if (!argv.payeeId && !argv.payeeName) {
                       throw new Error("Provide --payee-id or --payee-name");
