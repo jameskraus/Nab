@@ -28,6 +28,10 @@
 - This is greenfield development; feel free to change or discard old behavior/decisions.
 - Documentation should describe the current version only (the "now"), not legacy behavior.
 
+## Documentation updates
+- Update docs whenever behavior or flows change.
+- **Architecture changes must update** `docs/ARCHITECTURE.md` to reflect the current codebase.
+
 ## Integration testing (REQUIRED budget)
 All integration tests MUST target only this budget by default:
 - Budget ID: `06443689-ec9d-45d9-a37a-53dc60014769`
