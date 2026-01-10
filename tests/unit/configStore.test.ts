@@ -38,8 +38,22 @@ test("ConfigStore: redact masks tokens", async () => {
   const redacted = store.redact({
     tokens: ["abcd1234efgh", "ijkl5678mnop"],
     budgetId: "budget",
+    oauth: {
+      clientId: "client-id",
+      clientSecret: "supersecretvalue",
+      redirectUri: "http://127.0.0.1:53682/oauth/callback",
+      scope: "full",
+      token: {
+        accessToken: "access-token-value",
+        refreshToken: "refresh-token-value",
+        expiresAt: "2026-01-01T00:00:00Z",
+      },
+    },
   });
 
   expect(redacted.tokens).toEqual(["abcd…efgh", "ijkl…mnop"]);
   expect(redacted.budgetId).toBe("budget");
+  expect(redacted.oauth?.clientSecret).toMatch(/…/);
+  expect(redacted.oauth?.token?.accessToken).toMatch(/…/);
+  expect(redacted.oauth?.token?.refreshToken).toMatch(/…/);
 });

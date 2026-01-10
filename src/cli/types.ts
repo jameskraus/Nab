@@ -1,4 +1,5 @@
 export type CliGlobalArgs = {
+  auth: string | undefined;
   "budget-id": string | undefined;
   budgetId: string | undefined;
   format: string;

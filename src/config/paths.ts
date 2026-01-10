@@ -3,7 +3,7 @@ import path from "node:path";
 
 /**
  * Resolves the directory for nab local state:
- * - config.json (tokens, default budget id)
+ * - config.json (tokens, OAuth config, default budget id)
  * - nab.sqlite (history)
  */
 export function getConfigDir(): string {

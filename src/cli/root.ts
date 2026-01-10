@@ -25,6 +25,11 @@ export function createCli(argv: string[]) {
     .strict()
     .recommendCommands()
     .wrap(Math.min(120, cliTerminalWidth()))
+    .option("auth", {
+      type: "string",
+      choices: ["pat", "oauth"] as const,
+      describe: "Preferred auth method",
+    })
     .option("budget-id", {
       type: "string",
       describe: "Default budget id to operate on (overrides config)",
@@ -56,7 +61,7 @@ export function createCli(argv: string[]) {
       describe: "Skip interactive confirmation prompts",
     })
     .group(
-      ["budget-id", "format", "quiet", "no-color", "dry-run", "yes", "help", "version"],
+      ["auth", "budget-id", "format", "quiet", "no-color", "dry-run", "yes", "help", "version"],
       "Global Options",
     )
     .check((argv) => {
@@ -73,7 +78,7 @@ export function createCli(argv: string[]) {
       if (command === "config") return;
       if (command === "history") {
         (argv as { appContext?: unknown }).appContext = await createAppContext({
-          argv: argv as { "budget-id"?: string; budgetId?: string },
+          argv: argv as { auth?: string; "budget-id"?: string; budgetId?: string },
           requireToken: false,
           requireBudgetId: false,
           createDb: true,
@@ -93,7 +98,7 @@ export function createCli(argv: string[]) {
 
       // Attach for future handlers; throws on missing auth context.
       (argv as { appContext?: unknown }).appContext = await createAppContext({
-        argv: argv as { "budget-id"?: string; budgetId?: string },
+        argv: argv as { auth?: string; "budget-id"?: string; budgetId?: string },
         requireToken,
         requireBudgetId,
         createDb,

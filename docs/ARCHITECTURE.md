@@ -6,7 +6,7 @@
 
 - **Binary name:** `nab`
 - **Config dir name:** `nab` (OS-specific base path; e.g., `~/.config/nab` on Linux)
-- **Env vars (primary):** `NAB_TOKENS`, `NAB_BUDGET_ID`, `NAB_CONFIG_DIR`
+- **Env vars (primary):** `NAB_TOKENS`, `NAB_BUDGET_ID`, `NAB_CONFIG_DIR`, `NAB_AUTH_METHOD`, `NAB_OAUTH_CLIENT_ID`, `NAB_OAUTH_CLIENT_SECRET`, `NAB_OAUTH_SCOPE`
 - **Migrations:** `schema_migrations` + `schema_version` track journal schema; we only support the latest layout.
 
 ## Layers

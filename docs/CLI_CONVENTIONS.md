@@ -31,8 +31,8 @@ Examples:
 ## Config resolution
 
 Precedence (highest to lowest):
-1. CLI flags (`--budget-id`)
-2. Environment variables (`NAB_TOKENS`, `NAB_BUDGET_ID`, `NAB_CONFIG_DIR`)
+1. CLI flags (`--auth`, `--budget-id`)
+2. Environment variables (`NAB_AUTH_METHOD`, `NAB_TOKENS`, `NAB_BUDGET_ID`, `NAB_CONFIG_DIR`, `NAB_OAUTH_CLIENT_ID`, `NAB_OAUTH_CLIENT_SECRET`, `NAB_OAUTH_SCOPE`)
 3. Config file (`nab config set`)
 
 ## Read-only commands

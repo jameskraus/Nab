@@ -32,6 +32,18 @@ nab config show
 nab --help
 ```
 
+## OAuth (optional)
+
+`nab` also supports YNAB OAuth (Authorization Code Grant) with a localhost redirect.
+
+```bash
+# Initialize OAuth (prints redirect URI + saves client id/secret)
+nab auth oauth init
+
+# Login (starts local server + opens browser)
+nab auth oauth login
+```
+
 ## Development
 
 - Runtime: **Bun**

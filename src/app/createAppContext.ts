@@ -1,9 +1,17 @@
 import type { YnabApiClient } from "@/api/YnabClient";
 import { YnabClient } from "@/api/YnabClient";
+import { refreshOAuthToken } from "@/auth/ynabOAuth";
 import { ConfigStore } from "@/config/ConfigStore";
 import type { Config } from "@/config/schema";
 import { openJournalDb } from "@/journal/db";
-import { MissingBudgetIdError, MissingTokenError } from "./errors";
+import {
+  MissingBudgetIdError,
+  MissingOAuthClientIdError,
+  MissingOAuthClientSecretError,
+  MissingOAuthRefreshTokenError,
+  MissingOAuthTokenError,
+  MissingTokenError,
+} from "./errors";
 
 export type AppContext = {
   configStore: ConfigStore;
@@ -12,10 +20,12 @@ export type AppContext = {
   tokens?: string[];
   budgetId?: string;
   ynab?: YnabApiClient;
+  authMethod?: "pat" | "oauth";
 };
 
 export type AppContextOptions = {
   argv?: {
+    auth?: string;
     "budget-id"?: string;
     budgetId?: string;
   };
@@ -49,6 +59,20 @@ function parseTokens(value?: string | null): string[] | undefined {
   return tokens.length ? tokens : undefined;
 }
 
+function normalizeAuthMethod(value?: string | null): "pat" | "oauth" | undefined {
+  if (!value) return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "pat" || normalized === "oauth") return normalized;
+  return undefined;
+}
+
+function isTokenExpiring(expiresAt?: string, skewMs = 60_000): boolean {
+  if (!expiresAt) return true;
+  const parsed = Date.parse(expiresAt);
+  if (!Number.isFinite(parsed)) return true;
+  return parsed - Date.now() <= skewMs;
+}
+
 export async function createAppContext(options: AppContextOptions = {}): Promise<AppContext> {
   const env = options.env ?? process.env;
   const configStore = options.configStore ?? new ConfigStore();
@@ -56,7 +80,8 @@ export async function createAppContext(options: AppContextOptions = {}): Promise
   const createDb = options.createDb ?? true;
   const db = createDb ? await openJournalDb(options.dbPath) : undefined;
 
-  const tokens = parseTokens(env.NAB_TOKENS) ?? config.tokens;
+  const envTokens = parseTokens(env.NAB_TOKENS);
+  const configTokens = config.tokens;
   const budgetId =
     normalize(options.argv?.["budget-id"] ?? options.argv?.budgetId) ??
     normalize(env.NAB_BUDGET_ID) ??
@@ -65,9 +90,76 @@ export async function createAppContext(options: AppContextOptions = {}): Promise
   const requireToken = options.requireToken ?? true;
   const requireBudgetId = options.requireBudgetId ?? true;
 
+  const cliAuth = normalizeAuthMethod(options.argv?.auth);
+  const envAuth = normalizeAuthMethod(env.NAB_AUTH_METHOD);
+  const configAuth = normalizeAuthMethod(config.authMethod);
+  const authMethod =
+    cliAuth ??
+    envAuth ??
+    configAuth ??
+    (envTokens
+      ? "pat"
+      : config.oauth?.token?.accessToken
+        ? "oauth"
+        : configTokens
+          ? "pat"
+          : undefined);
+
+  let tokens: string[] | undefined;
+  let oauthToken = config.oauth?.token;
+
+  if (authMethod === "oauth") {
+    if (!oauthToken?.accessToken) {
+      if (requireToken) throw new MissingOAuthTokenError();
+    } else if (requireToken && isTokenExpiring(oauthToken.expiresAt)) {
+      const clientId = normalize(env.NAB_OAUTH_CLIENT_ID) ?? config.oauth?.clientId;
+      const clientSecret = normalize(env.NAB_OAUTH_CLIENT_SECRET) ?? config.oauth?.clientSecret;
+      const refreshToken = oauthToken.refreshToken;
+
+      if (!clientId) throw new MissingOAuthClientIdError();
+      if (!clientSecret) throw new MissingOAuthClientSecretError();
+      if (!refreshToken) throw new MissingOAuthRefreshTokenError();
+
+      try {
+        const refreshed = await refreshOAuthToken({
+          clientId,
+          clientSecret,
+          refreshToken,
+        });
+        oauthToken = refreshed;
+        await configStore.save({
+          oauth: {
+            ...(config.oauth ?? {}),
+            clientId: config.oauth?.clientId ?? clientId,
+            clientSecret: config.oauth?.clientSecret,
+            token: refreshed,
+          },
+        });
+      } catch (err) {
+        const latest = await configStore.load();
+        const latestToken = latest.oauth?.token;
+        if (latestToken && !isTokenExpiring(latestToken.expiresAt)) {
+          oauthToken = latestToken;
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    if (oauthToken?.accessToken) {
+      tokens = [oauthToken.accessToken];
+    }
+  } else {
+    tokens = envTokens ?? configTokens;
+  }
+
   if (requireToken && (!tokens || tokens.length === 0)) {
+    if (authMethod === "oauth") {
+      throw new MissingOAuthTokenError();
+    }
     throw new MissingTokenError();
   }
+
   if (requireBudgetId && !budgetId) {
     throw new MissingBudgetIdError();
   }
@@ -91,5 +183,6 @@ export async function createAppContext(options: AppContextOptions = {}): Promise
     tokens,
     budgetId,
     ynab,
+    authMethod,
   };
 }
