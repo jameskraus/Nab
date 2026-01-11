@@ -288,10 +288,6 @@ export const authOauthCommand: CommandModule = {
               type: "boolean",
               default: true,
               describe: "Set OAuth as the default auth method",
-            })
-            .option("set-budget", {
-              type: "string",
-              describe: "Set default budget id (default|prompt|skip|<id>)",
             }),
         handler: async (argv) => {
           const args = argv as {
@@ -303,7 +299,6 @@ export const authOauthCommand: CommandModule = {
             timeout?: number;
             open?: boolean;
             "set-default-auth"?: boolean;
-            "set-budget"?: string;
           };
 
           const store = new ConfigStore();
@@ -354,21 +349,9 @@ export const authOauthCommand: CommandModule = {
             clientSecret: config.oauth?.clientSecret,
           };
 
-          let budgetId = config.budgetId;
-          const setBudget = args["set-budget"] ?? (isInteractive() ? "prompt" : "skip");
-          if (setBudget === "default") {
-            budgetId = "default";
-          } else if (setBudget === "prompt") {
-            const response = await promptText("Default budget id (leave blank to skip): ");
-            if (response) budgetId = response;
-          } else if (setBudget && setBudget !== "skip") {
-            budgetId = setBudget;
-          }
-
           const next = await store.save({
             oauth: nextOauth,
             authMethod: args["set-default-auth"] ? "oauth" : config.authMethod,
-            budgetId,
           });
 
           const redacted = store.redact(next);

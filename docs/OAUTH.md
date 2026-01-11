@@ -47,7 +47,6 @@ alongside the existing Personal Access Token (PAT) workflow.
     - `--timeout <seconds>` (default 180)
     - `--scope read-only|full` (default config value, else `full`)
     - `--set-default-auth` (default true; sets auth method preference)
-    - `--set-budget default|<id>|prompt|skip` (default `prompt` in TTY)
 
 - `nab auth oauth status`
   - Shows redacted OAuth state (logged in, expiry, scope, auth preference).
