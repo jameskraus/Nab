@@ -58,6 +58,9 @@ Transactions:
 - `nab tx get --id <transaction-id> [--format ...]`
 - `nab tx create --account-id <id> --date YYYY-MM-DD --amount <amount> [--payee-id ...] [--category-id ...] [--memo ...] [--cleared ...] [--approved true|false] [--flag-color ...] [--format ...] [--dry-run] [--yes]`
 
+History (local-only):
+- `nab history show [--limit <n>] [--since <ISO 8601>] [--format ...]`
+
 Examples:
 - `nab budget list --format tsv`
 - `nab account list --format ids`
@@ -71,6 +74,9 @@ All mutating commands must:
 - support `--dry-run` (preview)
 - require `--yes` to apply in non-interactive contexts
 - be **idempotent** (setting a field to its current value is a no-op)
+
+History reverts:
+- `nab history revert --id <history-id> [--format ...] [--dry-run] [--yes]`
 
 ## Errors
 

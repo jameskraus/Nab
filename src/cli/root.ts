@@ -77,10 +77,11 @@ export function createCli(argv: string[]) {
       if (command === "auth") return;
       if (command === "config") return;
       if (command === "history") {
+        const isHistoryRevert = subcommand === "revert";
         (argv as { appContext?: unknown }).appContext = await createAppContext({
           argv: argv as { auth?: string; "budget-id"?: string; budgetId?: string },
-          requireToken: false,
-          requireBudgetId: false,
+          requireToken: isHistoryRevert,
+          requireBudgetId: isHistoryRevert,
           createDb: true,
         });
         return;

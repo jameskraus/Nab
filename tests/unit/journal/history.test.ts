@@ -5,7 +5,7 @@ import path from "node:path";
 import { expect, test } from "bun:test";
 
 import { openJournalDb } from "@/journal/db";
-import { listHistoryActions, recordHistoryAction } from "@/journal/history";
+import { getHistoryAction, listHistoryActions, recordHistoryAction } from "@/journal/history";
 
 async function createTempDb() {
   const dir = await mkdtemp(path.join(os.tmpdir(), "nab-history-"));
@@ -27,6 +27,11 @@ test("recordHistoryAction stores payload and inverse patch", async () => {
   expect(actions[0]?.id).toBe(inserted.id);
   expect(actions[0]?.payload.txIds).toEqual(["t1"]);
   expect(actions[0]?.inversePatch).toEqual(inversePatch);
+
+  const fetched = getHistoryAction(db, inserted.id);
+  expect(fetched?.id).toBe(inserted.id);
+  expect(fetched?.payload.txIds).toEqual(["t1"]);
+  expect(fetched?.inversePatch).toEqual(inversePatch);
 });
 
 test("listHistoryActions respects since and limit filters", async () => {

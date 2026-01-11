@@ -81,7 +81,8 @@ Global middleware lives in `src/cli/root.ts` and attaches `appContext` for most 
 
 Rules (current):
 - `auth` and `config`: no middleware (handlers run without `appContext`).
-- `history`: middleware runs with `{ requireToken: false, requireBudgetId: false, createDb: true }`.
+- `history show`: `{ requireToken: false, requireBudgetId: false, createDb: true }`.
+- `history revert`: `{ requireToken: true, requireBudgetId: true, createDb: true }`.
 - `budget list`: `{ requireToken: true, requireBudgetId: false, createDb: false }`.
 - `budget current`: `{ requireToken: false, requireBudgetId: false, createDb: false }`.
 - Read-only lists/gets (`account|category|payee list`, `tx list|get`):
@@ -106,6 +107,9 @@ Why this matters:
 ### Local-only commands
 - `history show` uses the SQLite journal (no YNAB client).
 - `budget current` reads the effective budget id (no YNAB client).
+
+### History reverts
+- `history revert` reads the SQLite journal and applies inverse patches via the YNAB API.
 
 ## Auth and budget precedence
 

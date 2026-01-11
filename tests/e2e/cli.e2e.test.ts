@@ -1,3 +1,7 @@
+import { mkdtemp } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+
 import { expect, test } from "bun:test";
 
 import { loadTestEnv } from "../helpers/testEnv";
@@ -264,6 +268,51 @@ if (!token || !budgetId) {
     expect(finalMemo.stderr.trim()).toBe("");
     const finalParsed = JSON.parse(finalMemo.stdout) as { memo?: string | null };
     expect(finalParsed.memo ?? null).toBe(originalMemo);
+  });
+
+  test("e2e: history revert restores memo change", async () => {
+    const accountId = await getWritableAccountId(baseEnv);
+    if (!accountId) return;
+
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "nab-e2e-history-"));
+    const env = { ...baseEnv, NAB_CONFIG_DIR: tempDir };
+
+    const transaction = await createTransaction(env, accountId, "__nab_e2e_history__");
+    const id = transaction.id;
+
+    try {
+      const original = await getTransaction(env, id);
+      const originalMemo = original?.memo ?? null;
+      const nextMemo = originalMemo === "__nab_e2e_history__2" ? "__nab_e2e_history__3" : "__nab_e2e_history__2";
+
+      const setResult = await runCli(
+        ["tx", "memo", "set", "--id", id, "--memo", nextMemo, "--yes", "--format", "json"],
+        env,
+      );
+      expect(setResult.exitCode).toBe(0);
+
+      const historyResult = await runCli(
+        ["history", "show", "--limit", "5", "--format", "json"],
+        env,
+      );
+      expect(historyResult.exitCode).toBe(0);
+
+      const actions = JSON.parse(historyResult.stdout) as Array<{ id: string; actionType: string }>;
+      const memoAction =
+        actions.find((action) => action.actionType === "tx.memo.set") ?? actions[0];
+      expect(memoAction?.id).toBeTruthy();
+
+      const revertResult = await runCli(
+        ["history", "revert", "--id", memoAction.id, "--yes", "--format", "json"],
+        env,
+      );
+      expect(revertResult.exitCode).toBe(0);
+
+      const after = await getTransaction(env, id);
+      expect(after?.memo ?? null).toBe(originalMemo);
+    } finally {
+      await runCli(["tx", "delete", "--id", id, "--yes", "--format", "json"], env);
+    }
   });
 
   test("e2e: tx delete respects --yes and dry-run", async () => {
