@@ -8,6 +8,11 @@ It is intentionally designed as a **"porcelain" CLI for AI agents**:
 - **scripting-friendly output** (JSON/TSV/ids)
 - local SQLite for **history/journaling**
 
+Example list filters:
+- `nab tx list --account-id <id> --format json`
+- `nab tx list --uncategorized --format json`
+- `nab tx list --unapproved --format json`
+
 ## Quick start
 
 ```bash

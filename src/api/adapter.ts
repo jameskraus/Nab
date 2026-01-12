@@ -33,9 +33,19 @@ export type YnabSdk = {
     getPayeesRaw: (params: { budgetId: string }) => Promise<ApiResponse<PayeesResponse>>;
   };
   transactions: {
-    getTransactionsRaw: (params: { budgetId: string; sinceDate?: string }) => Promise<
-      ApiResponse<TransactionsResponse>
-    >;
+    getTransactionsRaw: (params: {
+      budgetId: string;
+      sinceDate?: string;
+      type?: "uncategorized" | "unapproved";
+      lastKnowledgeOfServer?: number;
+    }) => Promise<ApiResponse<TransactionsResponse>>;
+    getTransactionsByAccountRaw: (params: {
+      budgetId: string;
+      accountId: string;
+      sinceDate?: string;
+      type?: "uncategorized" | "unapproved";
+      lastKnowledgeOfServer?: number;
+    }) => Promise<ApiResponse<TransactionsResponse>>;
     getTransactionByIdRaw: (params: {
       budgetId: string;
       transactionId: string;

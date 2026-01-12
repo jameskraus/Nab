@@ -31,6 +31,7 @@ type TxListArgs = CliArgs & {
   accountId?: string;
   sinceDate?: string;
   uncategorized?: boolean;
+  unapproved?: boolean;
 };
 
 type TxGetArgs = CliArgs & {
@@ -112,6 +113,7 @@ type TransactionListRow = {
 type TransactionFilters = {
   accountId?: string;
   uncategorized?: boolean;
+  unapproved?: boolean;
 };
 
 type MutationRow = {
@@ -236,10 +238,11 @@ export function applyTransactionFilters(
   transactions: TransactionDetail[],
   filters: TransactionFilters,
 ): TransactionDetail[] {
-  const { accountId, uncategorized } = filters;
+  const { accountId, uncategorized, unapproved } = filters;
   return transactions.filter((transaction) => {
     if (accountId && transaction.account_id !== accountId) return false;
     if (uncategorized && transaction.category_id) return false;
+    if (unapproved && transaction.approved !== false) return false;
     return true;
   });
 }
@@ -406,6 +409,11 @@ export const txCommand: CommandModule<CliGlobalArgs> = {
               default: false,
               describe: "Only show uncategorized transactions",
             })
+            .option("unapproved", {
+              type: "boolean",
+              default: false,
+              describe: "Only show unapproved transactions",
+            })
             .check((argv) => {
               if (typeof argv.accountId === "string" && argv.accountId.trim().length === 0) {
                 throw new Error("Provide a non-empty --account-id value.");
@@ -413,17 +421,27 @@ export const txCommand: CommandModule<CliGlobalArgs> = {
               if (typeof argv.sinceDate === "string" && !DATE_ONLY.test(argv.sinceDate)) {
                 throw new Error("Provide --since-date in YYYY-MM-DD format.");
               }
+              if (argv.uncategorized && argv.unapproved) {
+                throw new Error("Use either --uncategorized or --unapproved, not both.");
+              }
               return true;
             }),
         handler: async (argv) => {
-          const { appContext, format, accountId, sinceDate, uncategorized } =
+          const { appContext, format, accountId, sinceDate, uncategorized, unapproved } =
             argv as unknown as TxListArgs;
           const ctx = appContext;
           if (!ctx?.ynab || !ctx.budgetId) {
             throw new Error("Missing budget context for transaction list.");
           }
-          const transactions = await ctx.ynab.listTransactions(ctx.budgetId, sinceDate);
-          const filtered = applyTransactionFilters(transactions, { accountId, uncategorized });
+          const listType = uncategorized ? "uncategorized" : unapproved ? "unapproved" : undefined;
+          const transactions = accountId
+            ? await ctx.ynab.listAccountTransactions(ctx.budgetId, accountId, sinceDate, listType)
+            : await ctx.ynab.listTransactions(ctx.budgetId, sinceDate, listType);
+          const filtered = applyTransactionFilters(transactions, {
+            accountId,
+            uncategorized,
+            unapproved,
+          });
           const currencyFormat = await resolveBudgetCurrencyFormat(ctx, ctx.budgetId);
           writeTransactionList(filtered, format, { currencyFormat });
         },

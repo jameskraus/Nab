@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import type { BudgetSummary } from "ynab";
 
 import { YnabClient } from "@/api/YnabClient";
-import type { YnabApiClient } from "@/api/YnabClient";
+import type { TransactionListType, YnabApiClient } from "@/api/YnabClient";
 import { RateLimitedError, UnauthorizedError } from "@/api/errors";
 
 class StubClient implements YnabApiClient {
@@ -29,7 +29,20 @@ class StubClient implements YnabApiClient {
     throw new Error("not implemented");
   }
 
-  async listTransactions(): Promise<never> {
+  async listTransactions(
+    _budgetId: string,
+    _sinceDate?: string,
+    _type?: TransactionListType,
+  ): Promise<never> {
+    throw new Error("not implemented");
+  }
+
+  async listAccountTransactions(
+    _budgetId: string,
+    _accountId: string,
+    _sinceDate?: string,
+    _type?: TransactionListType,
+  ): Promise<never> {
     throw new Error("not implemented");
   }
 

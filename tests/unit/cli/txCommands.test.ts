@@ -68,17 +68,40 @@ test("transaction list writes tsv output", () => {
   );
 });
 
-test("transaction filters apply account and uncategorized rules", () => {
-  const categorized = makeTransaction({ id: "t1", account_id: "acc1", category_id: "cat1" });
-  const uncategorized = makeTransaction({ id: "t2", account_id: "acc2", category_id: null });
+test("transaction filters apply account, uncategorized, and unapproved rules", () => {
+  const categorized = makeTransaction({
+    id: "t1",
+    account_id: "acc1",
+    category_id: "cat1",
+    approved: true,
+  });
+  const uncategorized = makeTransaction({
+    id: "t2",
+    account_id: "acc2",
+    category_id: null,
+    approved: true,
+  });
+  const unapproved = makeTransaction({
+    id: "t3",
+    account_id: "acc1",
+    category_id: "cat2",
+    approved: false,
+  });
 
-  const byAccount = applyTransactionFilters([categorized, uncategorized], { accountId: "acc1" });
-  expect(byAccount.map((tx) => tx.id)).toEqual(["t1"]);
+  const byAccount = applyTransactionFilters([categorized, uncategorized, unapproved], {
+    accountId: "acc1",
+  });
+  expect(byAccount.map((tx) => tx.id)).toEqual(["t1", "t3"]);
 
-  const onlyUncategorized = applyTransactionFilters([categorized, uncategorized], {
+  const onlyUncategorized = applyTransactionFilters([categorized, uncategorized, unapproved], {
     uncategorized: true,
   });
   expect(onlyUncategorized.map((tx) => tx.id)).toEqual(["t2"]);
+
+  const onlyUnapproved = applyTransactionFilters([categorized, uncategorized, unapproved], {
+    unapproved: true,
+  });
+  expect(onlyUnapproved.map((tx) => tx.id)).toEqual(["t3"]);
 });
 
 test("transaction detail writes ids output", () => {

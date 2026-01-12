@@ -283,7 +283,8 @@ if (!token || !budgetId) {
     try {
       const original = await getTransaction(env, id);
       const originalMemo = original?.memo ?? null;
-      const nextMemo = originalMemo === "__nab_e2e_history__2" ? "__nab_e2e_history__3" : "__nab_e2e_history__2";
+      const nextMemo =
+        originalMemo === "__nab_e2e_history__2" ? "__nab_e2e_history__3" : "__nab_e2e_history__2";
 
       const setResult = await runCli(
         ["tx", "memo", "set", "--id", id, "--memo", nextMemo, "--yes", "--format", "json"],

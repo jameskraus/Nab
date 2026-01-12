@@ -11,6 +11,7 @@ import type {
 
 import type {
   SingleTokenYnabClientOptions,
+  TransactionListType,
   TransactionPatch,
   YnabApiClient,
 } from "./SingleTokenYnabClient";
@@ -20,6 +21,7 @@ import { RateLimitedError, UnauthorizedError } from "./errors";
 export type {
   RequestTraceEvent,
   SingleTokenYnabClientOptions,
+  TransactionListType,
   TransactionPatch,
   YnabApiClient,
 } from "./SingleTokenYnabClient";
@@ -185,8 +187,23 @@ export class YnabClient implements YnabApiClient {
     return this.execute((client) => client.listPayees(budgetId));
   }
 
-  async listTransactions(budgetId: string, sinceDate?: string): Promise<TransactionDetail[]> {
-    return this.execute((client) => client.listTransactions(budgetId, sinceDate));
+  async listTransactions(
+    budgetId: string,
+    sinceDate?: string,
+    type?: TransactionListType,
+  ): Promise<TransactionDetail[]> {
+    return this.execute((client) => client.listTransactions(budgetId, sinceDate, type));
+  }
+
+  async listAccountTransactions(
+    budgetId: string,
+    accountId: string,
+    sinceDate?: string,
+    type?: TransactionListType,
+  ): Promise<TransactionDetail[]> {
+    return this.execute((client) =>
+      client.listAccountTransactions(budgetId, accountId, sinceDate, type),
+    );
   }
 
   async getTransaction(budgetId: string, transactionId: string): Promise<TransactionDetail> {

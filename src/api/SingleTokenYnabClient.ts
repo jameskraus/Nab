@@ -33,6 +33,7 @@ export type RequestTraceEvent = {
 };
 
 export type TransactionPatch = PutTransactionWrapper["transaction"];
+export type TransactionListType = "uncategorized" | "unapproved";
 
 export type SingleTokenYnabClientOptions = {
   api?: YnabSdk;
@@ -48,7 +49,17 @@ export interface YnabApiClient {
   listAccounts(budgetId: string): Promise<Account[]>;
   listCategories(budgetId: string): Promise<CategoryGroupWithCategories[]>;
   listPayees(budgetId: string): Promise<Payee[]>;
-  listTransactions(budgetId: string, sinceDate?: string): Promise<TransactionDetail[]>;
+  listTransactions(
+    budgetId: string,
+    sinceDate?: string,
+    type?: TransactionListType,
+  ): Promise<TransactionDetail[]>;
+  listAccountTransactions(
+    budgetId: string,
+    accountId: string,
+    sinceDate?: string,
+    type?: TransactionListType,
+  ): Promise<TransactionDetail[]>;
   getTransaction(budgetId: string, transactionId: string): Promise<TransactionDetail>;
   createTransaction(budgetId: string, transaction: NewTransaction): Promise<TransactionDetail>;
   updateTransaction(
@@ -207,12 +218,36 @@ export class SingleTokenYnabClient implements YnabApiClient {
     });
   }
 
-  async listTransactions(budgetId: string, sinceDate?: string): Promise<TransactionDetail[]> {
+  async listTransactions(
+    budgetId: string,
+    sinceDate?: string,
+    type?: TransactionListType,
+  ): Promise<TransactionDetail[]> {
     return this.traced("listTransactions", async () => {
       const response = await this.executeGet<TransactionsResponse>(() =>
         this.api.transactions.getTransactionsRaw({
           budgetId,
           sinceDate,
+          type,
+        }),
+      );
+      return response.data.transactions;
+    });
+  }
+
+  async listAccountTransactions(
+    budgetId: string,
+    accountId: string,
+    sinceDate?: string,
+    type?: TransactionListType,
+  ): Promise<TransactionDetail[]> {
+    return this.traced("listAccountTransactions", async () => {
+      const response = await this.executeGet<TransactionsResponse>(() =>
+        this.api.transactions.getTransactionsByAccountRaw({
+          budgetId,
+          accountId,
+          sinceDate,
+          type,
         }),
       );
       return response.data.transactions;

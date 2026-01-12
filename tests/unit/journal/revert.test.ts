@@ -10,9 +10,9 @@ import type {
   TransactionDetail,
 } from "ynab";
 
-import type { TransactionPatch, YnabApiClient } from "@/api/YnabClient";
-import { revertHistoryAction } from "@/journal/revert";
+import type { TransactionListType, TransactionPatch, YnabApiClient } from "@/api/YnabClient";
 import type { HistoryAction } from "@/journal/history";
+import { revertHistoryAction } from "@/journal/revert";
 
 class MemoryClient implements YnabApiClient {
   private nextId = 1;
@@ -48,8 +48,21 @@ class MemoryClient implements YnabApiClient {
     throw new Error("Not implemented");
   }
 
-  async listTransactions(_budgetId: string, _sinceDate?: string): Promise<TransactionDetail[]> {
+  async listTransactions(
+    _budgetId: string,
+    _sinceDate?: string,
+    _type?: TransactionListType,
+  ): Promise<TransactionDetail[]> {
     return Array.from(this.transactions.values());
+  }
+
+  async listAccountTransactions(
+    _budgetId: string,
+    accountId: string,
+    _sinceDate?: string,
+    _type?: TransactionListType,
+  ): Promise<TransactionDetail[]> {
+    return Array.from(this.transactions.values()).filter((tx) => tx.account_id === accountId);
   }
 
   async getTransaction(_budgetId: string, transactionId: string): Promise<TransactionDetail> {
@@ -137,9 +150,7 @@ function buildTransaction(overrides: Partial<TransactionDetail>): TransactionDet
 }
 
 test("revertHistoryAction applies inverse patch and records forward patch", async () => {
-  const client = new MemoryClient([
-    buildTransaction({ id: "t1", memo: "new" }),
-  ]);
+  const client = new MemoryClient([buildTransaction({ id: "t1", memo: "new" })]);
 
   const history: HistoryAction = {
     id: "h1",

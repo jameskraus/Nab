@@ -131,6 +131,34 @@ if (!token || !budgetId) {
     expect(transaction.id).toBe(transactions[0].id);
   });
 
+  test("integration: list account transactions returns only that account", async () => {
+    const accounts = await client.listAccounts(budgetId);
+    const account = pickAccount(accounts);
+    if (!account) return;
+
+    const transactions = await client.listAccountTransactions(budgetId, account.id);
+    expect(Array.isArray(transactions)).toBe(true);
+    if (transactions.length === 0) return;
+
+    expect(transactions.every((tx) => tx.account_id === account.id)).toBe(true);
+  });
+
+  test("integration: list uncategorized returns only uncategorized transactions", async () => {
+    const transactions = await client.listTransactions(budgetId, undefined, "uncategorized");
+    expect(Array.isArray(transactions)).toBe(true);
+    if (transactions.length === 0) return;
+
+    expect(transactions.every((tx) => tx.category_id == null)).toBe(true);
+  });
+
+  test("integration: list unapproved returns only unapproved transactions", async () => {
+    const transactions = await client.listTransactions(budgetId, undefined, "unapproved");
+    expect(Array.isArray(transactions)).toBe(true);
+    if (transactions.length === 0) return;
+
+    expect(transactions.every((tx) => tx.approved === false)).toBe(true);
+  });
+
   test("integration: approve dry-run does not apply", async () => {
     const transactions = await client.listTransactions(budgetId);
     if (transactions.length === 0) return;

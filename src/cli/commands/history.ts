@@ -5,12 +5,8 @@ import { requireApplyConfirmation } from "@/cli/mutations";
 import type { CliGlobalArgs } from "@/cli/types";
 import { type OutputWriterOptions, createOutputWriter, fieldColumn, parseOutputFormat } from "@/io";
 import { normalizeArgv } from "@/journal/argv";
-import {
-  getHistoryAction,
-  listHistoryActions,
-  recordHistoryAction,
-} from "@/journal/history";
-import { revertHistoryAction, type RevertResult } from "@/journal/revert";
+import { getHistoryAction, listHistoryActions, recordHistoryAction } from "@/journal/history";
+import { type RevertResult, revertHistoryAction } from "@/journal/revert";
 
 export const historyCommand: CommandModule<CliGlobalArgs> = {
   command: "history <command>",

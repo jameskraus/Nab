@@ -44,6 +44,9 @@ const stubSdk = (overrides: ApiOverrides): YnabSdk => ({
     getTransactionsRaw: async () => {
       throw new Error("Not implemented");
     },
+    getTransactionsByAccountRaw: async () => {
+      throw new Error("Not implemented");
+    },
     getTransactionByIdRaw: async () => {
       throw new Error("Not implemented");
     },
