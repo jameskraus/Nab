@@ -59,7 +59,11 @@ Read-only:
 - List accounts
 - List categories
 - List payees
-- List transactions
+- List transactions (budget-wide or account-scoped)
+
+Transaction list filters (server-side):
+- `since_date` (YYYY-MM-DD)
+- `type=uncategorized` or `type=unapproved`
 
 Mutations (transactions only, v1):
 - Update a transaction (approve/unapprove, cleared status, category, memo, flag, date, payee, amount, account)

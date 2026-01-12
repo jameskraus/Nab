@@ -67,6 +67,7 @@ History (local-only):
 Examples:
 - `nab budget list --format tsv`
 - `nab account list --format ids`
+- `nab tx list --account-id 123 --format json`
 - `nab tx list --since-date 2026-01-01 --uncategorized --format json`
 - `nab tx list --unapproved --format json`
 - `nab tx get --id 12345 --format json`

@@ -22,6 +22,7 @@ Responsibilities:
 
 Notes (current behavior):
 - Read-only commands call the YNAB API directly via `ctx.ynab.*` (e.g., `budget list`, `account/category/payee list`, `tx list/get`).
+- `tx list` uses the account-scoped endpoint when `--account-id` is provided and forwards server-side type filters (`uncategorized` / `unapproved`).
 - Mutating commands use the domain service layer for transaction operations.
 - `auth` and `config` commands bypass the global middleware and talk to config/auth helpers directly.
 - CLI handlers do not execute SQL directly; they call journal helpers in `src/journal/**`.
@@ -48,6 +49,7 @@ Responsibilities:
 - thin wrapper over YNAB API / SDK
 - consistent error mapping (`401` -> Unauthorized, `404` -> NotFound, `429` -> RateLimited)
 - retry/backoff (ONLY where safe)
+- exposes account-scoped transaction listing and server-side transaction type filters
 
 Implementation notes:
 - `SingleTokenYnabClient` wraps the SDK, enforces concurrency, retries GETs on rate-limit/network errors, and maps errors.
