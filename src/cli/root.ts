@@ -1,8 +1,10 @@
 import yargs from "yargs/yargs";
 
 import { createAppContext } from "@/app/createAppContext";
+import { createSilentLogger } from "@/logging";
 import { formatError } from "@/util/errors";
 import { exitCodeForError } from "@/util/exitCodes";
+import type { Logger } from "pino";
 import type { Argv } from "yargs";
 import { accountCommand } from "./commands/account";
 import { authCommand } from "./commands/auth";
@@ -14,7 +16,13 @@ import { payeeCommand } from "./commands/payee";
 import { txCommand } from "./commands/tx";
 import type { CliGlobalArgs } from "./types";
 
-export function createCli(argv: string[]) {
+type CliOptions = {
+  logger?: Logger;
+};
+
+export function createCli(argv: string[], options: CliOptions = {}) {
+  const baseLogger = options.logger ?? createSilentLogger();
+
   const cli = (yargs(argv) as Argv<CliGlobalArgs>)
     .scriptName("nab")
     .usage("$0 <command> [options]")
@@ -70,6 +78,20 @@ export function createCli(argv: string[]) {
       }
       return true;
     })
+    .middleware((argv) => {
+      const command = String(argv._[0] ?? "");
+      if (!command) return;
+      const subcommand = String(argv._[1] ?? "");
+      const cmdLogger = baseLogger.child({
+        command,
+        subcommand,
+        format: argv.format,
+        dryRun: argv["dry-run"],
+        yes: argv.yes,
+      });
+      (argv as { logger?: Logger }).logger = cmdLogger;
+      cmdLogger.info({ event: "command_start" });
+    })
     .middleware(async (argv) => {
       const command = String(argv._[0] ?? "");
       const subcommand = String(argv._[1] ?? "");
@@ -83,6 +105,7 @@ export function createCli(argv: string[]) {
           requireToken: isHistoryRevert,
           requireBudgetId: isHistoryRevert,
           createDb: true,
+          logger: (argv as { logger?: Logger }).logger ?? baseLogger,
         });
         return;
       }
@@ -110,6 +133,7 @@ export function createCli(argv: string[]) {
         requireToken,
         requireBudgetId,
         createDb,
+        logger: (argv as { logger?: Logger }).logger ?? baseLogger,
       });
     })
     .fail((msg, err, y) => {
@@ -119,6 +143,8 @@ export function createCli(argv: string[]) {
       }
       const error = err ?? new Error(msg);
       const exitCode = exitCodeForError(error);
+
+      baseLogger.error({ event: "cli_fail", msg, err: error });
 
       // Errors to stderr; keep stdout clean for piping.
       process.stderr.write(`${formatError(error)}\n`);

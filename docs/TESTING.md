@@ -42,10 +42,11 @@ bun test --filter e2e
 
 ## Debugging rate limits
 
-To see token rotation/cooldown events while tests run, enable:
+To see token rotation/cooldown events while tests run, inspect the log file
+(defaults to `~/Library/Logs/nab/nab.log` on macOS). You can also redirect logs:
 
 ```bash
-export NAB_TOKEN_TRACE=1
+export NAB_LOG_DIR="/tmp/nab-logs"
 ```
 
 Guidelines:

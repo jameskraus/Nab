@@ -19,6 +19,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "pino": "^9.6.0",
     "picocolors": "^1.0.1",
     "yargs": "^17.7.2",
     "ynab": "^2.10.0",

@@ -61,6 +61,16 @@ bun test
 bun run lint
 ```
 
+## Logging
+
+`nab` writes structured NDJSON logs to a local file (no stdout/stderr noise by default).
+Locations:
+- macOS: `~/Library/Logs/nab/nab.log`
+- Linux: `~/.local/state/nab/nab.log` (or `$XDG_STATE_HOME/nab/nab.log`)
+- Windows: `%LOCALAPPDATA%\\nab\\Logs\\nab.log`
+
+Override with env vars: `NAB_LOG_DIR`, `NAB_LOG_FILE`, `NAB_LOG_LEVEL`, `NAB_LOG_DISABLE`.
+
 ## Docs
 
 - `docs/YNAB_PRIMER.md` — YNAB domain + API basics

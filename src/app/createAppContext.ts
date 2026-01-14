@@ -1,9 +1,12 @@
-import type { YnabApiClient } from "@/api/YnabClient";
+import type { Logger } from "pino";
+
+import type { RequestTraceEvent, TokenTraceEvent, YnabApiClient } from "@/api/YnabClient";
 import { YnabClient } from "@/api/YnabClient";
 import { refreshOAuthToken } from "@/auth/ynabOAuth";
 import { ConfigStore } from "@/config/ConfigStore";
 import type { Config } from "@/config/schema";
 import { openJournalDb } from "@/journal/db";
+import { createSilentLogger } from "@/logging";
 import {
   MissingBudgetIdError,
   MissingOAuthClientIdError,
@@ -17,6 +20,7 @@ export type AppContext = {
   configStore: ConfigStore;
   config: Config;
   db: Awaited<ReturnType<typeof openJournalDb>> | undefined;
+  logger: Logger;
   tokens?: string[];
   budgetId?: string;
   ynab?: YnabApiClient;
@@ -36,17 +40,13 @@ export type AppContextOptions = {
   requireToken?: boolean;
   requireBudgetId?: boolean;
   ynab?: YnabApiClient;
+  logger?: Logger;
 };
 
 function normalize(value?: string | null): string | undefined {
   if (!value) return undefined;
   const trimmed = value.trim();
   return trimmed.length ? trimmed : undefined;
-}
-
-function parseBool(value?: string | null): boolean {
-  if (!value) return false;
-  return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
 }
 
 function parseTokens(value?: string | null): string[] | undefined {
@@ -79,6 +79,7 @@ export async function createAppContext(options: AppContextOptions = {}): Promise
   const config = await configStore.load();
   const createDb = options.createDb ?? true;
   const db = createDb ? await openJournalDb(options.dbPath) : undefined;
+  const logger = options.logger ?? createSilentLogger();
 
   const envTokens = parseTokens(env.NAB_TOKENS);
   const configTokens = config.tokens;
@@ -165,22 +166,57 @@ export async function createAppContext(options: AppContextOptions = {}): Promise
     throw new MissingBudgetIdError();
   }
 
-  const tokenTrace = parseBool(env.NAB_TOKEN_TRACE)
-    ? (event: { token: string; action: string; reason?: string }) => {
-        const parts = [`[nab] token ${event.action}`, event.token];
-        if (event.reason) parts.push(`(${event.reason})`);
-        console.error(parts.join(" "));
-      }
-    : undefined;
+  const tokenTrace = (event: TokenTraceEvent) => {
+    const log =
+      event.action === "disable" || event.action === "cooldown" ? logger.warn : logger.debug;
+    log({
+      event: "ynab.token",
+      action: event.action,
+      reason: event.reason,
+      token: event.token,
+    });
+  };
+
+  const requestTrace = (event: RequestTraceEvent) => {
+    const payload = {
+      event: "ynab.request",
+      name: event.name,
+      phase: event.phase,
+      requestId: event.requestId,
+      startTime: event.startTime,
+      durationMs: event.durationMs,
+      meta: event.meta,
+      summary: event.summary,
+      status: event.status,
+    };
+
+    if (event.phase === "error") {
+      logger.error({ ...payload, err: event.error });
+      return;
+    }
+
+    logger.debug(payload);
+  };
 
   const ynab =
     options.ynab ??
-    (tokens && tokens.length > 0 ? new YnabClient(tokens, undefined, { tokenTrace }) : undefined);
+    (tokens && tokens.length > 0
+      ? new YnabClient(tokens, undefined, { tokenTrace, trace: requestTrace })
+      : undefined);
+
+  logger.info({
+    event: "context",
+    authMethod,
+    tokenCount: tokens?.length ?? 0,
+    hasBudgetId: Boolean(budgetId),
+    dbEnabled: Boolean(db),
+  });
 
   return {
     configStore,
     config,
     db,
+    logger,
     tokens,
     budgetId,
     ynab,

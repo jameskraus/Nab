@@ -36,6 +36,17 @@ Responsibilities:
 
 This is the primary “middleware” entrypoint used by commands.
 
+### 2.5) Logging subsystem (`src/logging/**`)
+Responsibilities:
+- initialize a per-run logger in `src/cli/index.ts`
+- write NDJSON logs to a local file (pino)
+- rotate + clean up old log files on startup
+- redact token-shaped strings and known secret fields
+
+Key environment variables:
+- `NAB_LOG_DIR`, `NAB_LOG_FILE`, `NAB_LOG_LEVEL`
+- `NAB_LOG_DISABLE`, `NAB_LOG_MAX_BYTES`, `NAB_LOG_RETENTION_DAYS`, `NAB_LOG_MAX_FILES`
+
 ### 3) Domain / service layer (`src/domain/**`)
 Responsibilities:
 - implement high-level mutation operations (approve, categorize, memo set/clear, cleared set, etc.)
