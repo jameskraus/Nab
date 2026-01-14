@@ -134,8 +134,9 @@ Why this matters:
 ### Auth method resolution (highest → lowest)
 1) CLI `--auth`
 2) `NAB_AUTH_METHOD` env var
-3) config `authMethod`
-4) heuristic: env tokens → PAT, else OAuth token in config → OAuth, else config tokens → PAT
+3) env tokens present → PAT
+4) config `authMethod`
+5) heuristic: OAuth token in config → OAuth, else config tokens → PAT
 
 ### Token sources
 - PAT: `NAB_TOKENS` env or config `tokens`.

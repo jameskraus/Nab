@@ -97,14 +97,9 @@ export async function createAppContext(options: AppContextOptions = {}): Promise
   const authMethod =
     cliAuth ??
     envAuth ??
+    (envTokens ? "pat" : undefined) ??
     configAuth ??
-    (envTokens
-      ? "pat"
-      : config.oauth?.token?.accessToken
-        ? "oauth"
-        : configTokens
-          ? "pat"
-          : undefined);
+    (config.oauth?.token?.accessToken ? "oauth" : configTokens ? "pat" : undefined);
 
   let tokens: string[] | undefined;
   let oauthToken = config.oauth?.token;
