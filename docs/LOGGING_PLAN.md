@@ -66,7 +66,6 @@ We’ll add a simple logging config surface:
 | `NAB_LOG_DIR`            |   *(platform default)* | Log directory                                  |
 | `NAB_LOG_FILE`           |            `nab.log` | File name (absolute allowed)                      |
 | `NAB_LOG_LEVEL`          |              `debug` | What gets written (debug includes request traces) |
-| `NAB_LOG_DISABLE`        |                  `0` | Disable logging (parse like `NAB_TOKEN_TRACE`)    |
 | `NAB_LOG_MAX_BYTES`      |           `25000000` | Rotate if active file bigger than this            |
 | `NAB_LOG_RETENTION_DAYS` |                 `14` | Delete rotated logs older than this               |
 | `NAB_LOG_MAX_FILES`      |                 `30` | Keep at most N rotated files                      |
@@ -75,6 +74,7 @@ We’ll add a simple logging config surface:
 
 * `NAB_LOG_LEVEL=debug` so request start/success logs (which we’ll log at `debug`) are always captured.
 * No stderr/stdout logging by default.
+* Logging is always enabled; there is no disable switch.
 
 Optional (off by default): `NAB_LOG_TO_STDERR=1` could duplicate `info+` logs to stderr for interactive debugging, but don’t implement this unless you really want it—your requirement is “no logs on stdout/stderr during normal operation”.
 
@@ -159,25 +159,19 @@ export type RunLogger = {
 
 Implementation details:
 
-* If `NAB_LOG_DISABLE` is truthy (use the same `parseBool` as `NAB_TOKEN_TRACE`) OR `NODE_ENV === "test"`:
+1. resolve log path + ensure directory exists
+2. rotate + cleanup
+3. create destination: `pino.destination({ dest: logPath, sync: true })`
 
-  * return `pino({ level: "silent" })` and no-op `close()`
+   * `sync: true` is important for a CLI that exits quickly
+4. create base pino with:
 
-* Else:
+   * `timestamp: pino.stdTimeFunctions.isoTime`
+   * `formatters.level` to store string levels (easier with jq)
+   * `redact` paths to prevent accidental token leakage:
 
-  1. resolve log path + ensure directory exists
-  2. rotate + cleanup
-  3. create destination: `pino.destination({ dest: logPath, sync: true })`
-
-     * `sync: true` is important for a CLI that exits quickly
-  4. create base pino with:
-
-     * `timestamp: pino.stdTimeFunctions.isoTime`
-     * `formatters.level` to store string levels (easier with jq)
-     * `redact` paths to prevent accidental token leakage:
-
-       * `"*.token"`, `"*.tokens"`, `"*.accessToken"`, `"*.refreshToken"`, `"*.clientSecret"`, `"headers.authorization"` etc.
-  5. create a child logger with `{ runId }`
+     * `"*.token"`, `"*.tokens"`, `"*.accessToken"`, `"*.refreshToken"`, `"*.clientSecret"`, `"headers.authorization"` etc.
+5. create a child logger with `{ runId }`
 
 Also: log a `run_start` event immediately (using sanitized argv).
 

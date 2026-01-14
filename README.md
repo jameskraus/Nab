@@ -69,7 +69,7 @@ Locations:
 - Linux: `~/.local/state/nab/nab.log` (or `$XDG_STATE_HOME/nab/nab.log`)
 - Windows: `%LOCALAPPDATA%\\nab\\Logs\\nab.log`
 
-Override with env vars: `NAB_LOG_DIR`, `NAB_LOG_FILE`, `NAB_LOG_LEVEL`, `NAB_LOG_DISABLE`.
+Override with env vars: `NAB_LOG_DIR`, `NAB_LOG_FILE`, `NAB_LOG_LEVEL`.
 
 ## Docs
 

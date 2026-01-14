@@ -1,7 +1,6 @@
 import yargs from "yargs/yargs";
 
 import { createAppContext } from "@/app/createAppContext";
-import { createSilentLogger } from "@/logging";
 import { formatError } from "@/util/errors";
 import { exitCodeForError } from "@/util/exitCodes";
 import type { Logger } from "pino";
@@ -17,11 +16,11 @@ import { txCommand } from "./commands/tx";
 import type { CliGlobalArgs } from "./types";
 
 type CliOptions = {
-  logger?: Logger;
+  logger: Logger;
 };
 
-export function createCli(argv: string[], options: CliOptions = {}) {
-  const baseLogger = options.logger ?? createSilentLogger();
+export function createCli(argv: string[], options: CliOptions) {
+  const baseLogger = options.logger;
 
   const cli = (yargs(argv) as Argv<CliGlobalArgs>)
     .scriptName("nab")

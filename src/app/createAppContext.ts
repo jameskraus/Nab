@@ -6,7 +6,6 @@ import { refreshOAuthToken } from "@/auth/ynabOAuth";
 import { ConfigStore } from "@/config/ConfigStore";
 import type { Config } from "@/config/schema";
 import { openJournalDb } from "@/journal/db";
-import { createSilentLogger } from "@/logging";
 import {
   MissingBudgetIdError,
   MissingOAuthClientIdError,
@@ -40,7 +39,7 @@ export type AppContextOptions = {
   requireToken?: boolean;
   requireBudgetId?: boolean;
   ynab?: YnabApiClient;
-  logger?: Logger;
+  logger: Logger;
 };
 
 function normalize(value?: string | null): string | undefined {
@@ -73,13 +72,16 @@ function isTokenExpiring(expiresAt?: string, skewMs = 60_000): boolean {
   return parsed - Date.now() <= skewMs;
 }
 
-export async function createAppContext(options: AppContextOptions = {}): Promise<AppContext> {
+export async function createAppContext(options: AppContextOptions): Promise<AppContext> {
   const env = options.env ?? process.env;
   const configStore = options.configStore ?? new ConfigStore();
   const config = await configStore.load();
   const createDb = options.createDb ?? true;
   const db = createDb ? await openJournalDb(options.dbPath) : undefined;
-  const logger = options.logger ?? createSilentLogger();
+  if (!options.logger) {
+    throw new Error("createAppContext requires a logger.");
+  }
+  const logger = options.logger;
 
   const envTokens = parseTokens(env.NAB_TOKENS);
   const configTokens = config.tokens;
@@ -162,14 +164,17 @@ export async function createAppContext(options: AppContextOptions = {}): Promise
   }
 
   const tokenTrace = (event: TokenTraceEvent) => {
-    const log =
-      event.action === "disable" || event.action === "cooldown" ? logger.warn : logger.debug;
-    log({
+    const payload = {
       event: "ynab.token",
       action: event.action,
       reason: event.reason,
       token: event.token,
-    });
+    };
+    if (event.action === "disable" || event.action === "cooldown") {
+      logger.warn(payload);
+      return;
+    }
+    logger.debug(payload);
   };
 
   const requestTrace = (event: RequestTraceEvent) => {

@@ -2,11 +2,30 @@ import { mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import type { Logger } from "pino";
 
 import { createAppContext } from "@/app/createAppContext";
 import { MissingBudgetIdError, MissingOAuthTokenError, MissingTokenError } from "@/app/errors";
 import { ConfigStore } from "@/config/ConfigStore";
+import { createRunLogger } from "@/logging";
+
+let logger: Logger;
+let closeLogger: () => void = () => {};
+
+beforeAll(async () => {
+  const logDir = await mkdtemp(path.join(os.tmpdir(), "nab-test-logs-"));
+  const runLogger = createRunLogger({
+    env: { ...process.env, NAB_LOG_DIR: logDir, NAB_LOG_FILE: "nab-test.log" },
+    argv: [],
+  });
+  logger = runLogger.logger;
+  closeLogger = runLogger.close;
+});
+
+afterAll(() => {
+  closeLogger();
+});
 
 async function createStore(values: {
   tokens?: string[];
@@ -34,6 +53,7 @@ test("createAppContext: flags > env > config precedence", async () => {
     env: { NAB_TOKENS: "env-token-1,env-token-2", NAB_BUDGET_ID: "env-budget" },
     argv: { "budget-id": "flag-budget" },
     createDb: false,
+    logger,
   });
 
   expect(ctx.tokens).toEqual(["env-token-1", "env-token-2"]);
@@ -48,6 +68,7 @@ test("createAppContext: falls back to config when env/flags missing", async () =
     env: {},
     argv: {},
     createDb: false,
+    logger,
   });
 
   expect(ctx.tokens).toEqual(["config-token"]);
@@ -64,6 +85,7 @@ test("createAppContext: missing token throws MissingTokenError", async () => {
       argv: {},
       createDb: false,
       requireBudgetId: false,
+      logger,
     }),
   ).rejects.toBeInstanceOf(MissingTokenError);
 });
@@ -78,6 +100,7 @@ test("createAppContext: missing budget id throws MissingBudgetIdError", async ()
       argv: {},
       createDb: false,
       requireToken: false,
+      logger,
     }),
   ).rejects.toBeInstanceOf(MissingBudgetIdError);
 });
@@ -100,6 +123,7 @@ test("createAppContext: oauth auth method uses access token", async () => {
     argv: {},
     createDb: false,
     requireBudgetId: false,
+    logger,
   });
 
   expect(ctx.tokens).toEqual(["oauth-access"]);
@@ -124,6 +148,7 @@ test("createAppContext: env tokens override oauth by default", async () => {
     argv: {},
     createDb: false,
     requireBudgetId: false,
+    logger,
   });
 
   expect(ctx.tokens).toEqual(["env-token"]);
@@ -140,6 +165,7 @@ test("createAppContext: oauth auth method without token throws MissingOAuthToken
       argv: {},
       createDb: false,
       requireBudgetId: false,
+      logger,
     }),
   ).rejects.toBeInstanceOf(MissingOAuthTokenError);
 });

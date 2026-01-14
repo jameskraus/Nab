@@ -45,7 +45,7 @@ Responsibilities:
 
 Key environment variables:
 - `NAB_LOG_DIR`, `NAB_LOG_FILE`, `NAB_LOG_LEVEL`
-- `NAB_LOG_DISABLE`, `NAB_LOG_MAX_BYTES`, `NAB_LOG_RETENTION_DAYS`, `NAB_LOG_MAX_FILES`
+- `NAB_LOG_MAX_BYTES`, `NAB_LOG_RETENTION_DAYS`, `NAB_LOG_MAX_FILES`
 
 ### 3) Domain / service layer (`src/domain/**`)
 Responsibilities:

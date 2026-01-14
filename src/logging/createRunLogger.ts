@@ -19,19 +19,10 @@ type RunLoggerOptions = {
   env?: NodeJS.ProcessEnv;
 };
 
-function parseBool(value?: string | null): boolean {
-  if (!value) return false;
-  return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
-}
-
 function parseNumber(value: string | undefined, fallback: number): number {
   if (!value) return fallback;
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-function createNullLogger(): pino.Logger {
-  return pino({ level: "silent" });
 }
 
 function buildRedactPaths(): string[] {
@@ -53,10 +44,6 @@ function buildRedactPaths(): string[] {
 export function createRunLogger(options: RunLoggerOptions = {}): RunLogger {
   const env = options.env ?? process.env;
   const runId = randomUUID();
-
-  if (parseBool(env.NAB_LOG_DISABLE) || env.NODE_ENV === "test") {
-    return { logger: createNullLogger(), runId, logPath: "", close: () => {} };
-  }
 
   const logPath = resolveLogPath(env);
   const logDir = path.dirname(logPath);
@@ -112,11 +99,7 @@ export function createRunLogger(options: RunLoggerOptions = {}): RunLogger {
     };
 
     return { logger, runId, logPath, close };
-  } catch {
-    return { logger: createNullLogger(), runId, logPath: "", close: () => {} };
+  } catch (error) {
+    throw new Error(`Failed to initialize logging at ${logPath}.`, { cause: error });
   }
-}
-
-export function createSilentLogger(): pino.Logger {
-  return createNullLogger();
 }
