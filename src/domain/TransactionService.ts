@@ -98,6 +98,12 @@ export class TransactionService {
         continue;
       }
 
+      if (Object.prototype.hasOwnProperty.call(nextPatch, "category_id")) {
+        if (transaction.transfer_account_id) {
+          throw new Error("Transfers cannot be categorized.");
+        }
+      }
+
       if (nextPatch.account_id !== undefined) {
         if (transaction.transfer_account_id || transaction.transfer_transaction_id) {
           throw new Error("Transfers cannot be moved in v1.");

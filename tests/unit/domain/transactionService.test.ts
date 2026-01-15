@@ -111,3 +111,22 @@ test("TransactionService batches updates for multiple ids", async () => {
   expect(state.updateCalls).toBe(0);
   expect(state.batchCalls).toBe(1);
 });
+
+test("TransactionService rejects category updates for transfers", async () => {
+  const state: ClientState = {
+    transaction: makeTransaction({
+      transfer_account_id: "acc2",
+      category_id: null,
+    }),
+    updateCalls: 0,
+    batchCalls: 0,
+  };
+  const client = createClient(state) as unknown as import("@/api/YnabClient").YnabClient;
+  const service = new TransactionService(client, "budget");
+
+  await expect(service.applyPatch(["t1"], { category_id: "cat1" })).rejects.toThrow(
+    "Transfers cannot be categorized.",
+  );
+  expect(state.updateCalls).toBe(0);
+  expect(state.batchCalls).toBe(0);
+});

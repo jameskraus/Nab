@@ -54,12 +54,15 @@ Payees:
 - `nab payee list [--format ...]` (requires budget id)
 
 Transactions:
-- `nab tx list [--since-date YYYY-MM-DD] [--account-id <id>] [--uncategorized] [--unapproved] [--format ...]`
+- `nab tx list [--since-date YYYY-MM-DD] [--account-id <id>] [--only-uncategorized] [--only-unapproved] [--only-transfers] [--exclude-transfers] [--format ...]`
 - `nab tx get --id <transaction-id> [--format ...]`
 - `nab tx create --account-id <id> --date YYYY-MM-DD --amount <amount> [--payee-id ...] [--category-id ...] [--memo ...] [--cleared ...] [--approved true|false] [--flag-color ...] [--format ...] [--dry-run] [--yes]`
 
 Notes:
-- `--uncategorized` and `--unapproved` are mutually exclusive.
+- `--only-uncategorized` and `--only-unapproved` are mutually exclusive.
+- `--only-transfers` and `--exclude-transfers` are mutually exclusive.
+- `--uncategorized` and `--unapproved` are deprecated aliases.
+- Transfer transactions render category as `n/a - transfer` in table/tsv output; JSON keeps `category_id` and `category_name` as null.
 
 History (local-only):
 - `nab history show [--limit <n>] [--since <ISO 8601>] [--format ...]`
@@ -68,8 +71,9 @@ Examples:
 - `nab budget list --format tsv`
 - `nab account list --format ids`
 - `nab tx list --account-id 123 --format json`
-- `nab tx list --since-date 2026-01-01 --uncategorized --format json`
-- `nab tx list --unapproved --format json`
+- `nab tx list --since-date 2026-01-01 --only-uncategorized --format json`
+- `nab tx list --only-unapproved --format json`
+- `nab tx list --exclude-transfers --format json`
 - `nab tx get --id 12345 --format json`
 
 ## Mutations

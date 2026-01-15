@@ -10,8 +10,9 @@ It is intentionally designed as a **"porcelain" CLI for AI agents**:
 
 Example list filters:
 - `nab tx list --account-id <id> --format json`
-- `nab tx list --uncategorized --format json`
-- `nab tx list --unapproved --format json`
+- `nab tx list --only-uncategorized --format json`
+- `nab tx list --only-unapproved --format json`
+- `nab tx list --exclude-transfers --format json`
 
 ## Quick start
 

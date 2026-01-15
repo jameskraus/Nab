@@ -30,8 +30,12 @@ type CliArgs = CliGlobalArgs & { appContext?: AppContext };
 type TxListArgs = CliArgs & {
   accountId?: string;
   sinceDate?: string;
+  onlyUncategorized?: boolean;
+  onlyUnapproved?: boolean;
   uncategorized?: boolean;
   unapproved?: boolean;
+  onlyTransfers?: boolean;
+  excludeTransfers?: boolean;
 };
 
 type TxGetArgs = CliArgs & {
@@ -112,8 +116,10 @@ type TransactionListRow = {
 
 type TransactionFilters = {
   accountId?: string;
-  uncategorized?: boolean;
-  unapproved?: boolean;
+  onlyUncategorized?: boolean;
+  onlyUnapproved?: boolean;
+  onlyTransfers?: boolean;
+  excludeTransfers?: boolean;
 };
 
 type MutationRow = {
@@ -140,6 +146,50 @@ type TransactionOutput = Omit<TransactionDetail, "amount" | "subtransactions"> &
 };
 
 type MoneyWriterOptions = OutputWriterOptions & { currencyFormat?: CurrencyFormat | null };
+
+function isTransferTransaction(transaction: TransactionDetail): boolean {
+  return Boolean(transaction.transfer_account_id);
+}
+
+type TxListFlagOptions = {
+  onlyUncategorized?: boolean;
+  onlyUnapproved?: boolean;
+  uncategorized?: boolean;
+  unapproved?: boolean;
+  onlyTransfers?: boolean;
+  excludeTransfers?: boolean;
+};
+
+type NormalizedTxListFlags = {
+  onlyUncategorized: boolean;
+  onlyUnapproved: boolean;
+  onlyTransfers: boolean;
+  excludeTransfers: boolean;
+  usedDeprecatedUncategorized: boolean;
+  usedDeprecatedUnapproved: boolean;
+};
+
+function normalizeTxListFlags(options: TxListFlagOptions): NormalizedTxListFlags {
+  return {
+    onlyUncategorized: Boolean(options.onlyUncategorized || options.uncategorized),
+    onlyUnapproved: Boolean(options.onlyUnapproved || options.unapproved),
+    onlyTransfers: Boolean(options.onlyTransfers),
+    excludeTransfers: Boolean(options.excludeTransfers),
+    usedDeprecatedUncategorized: Boolean(options.uncategorized),
+    usedDeprecatedUnapproved: Boolean(options.unapproved),
+  };
+}
+
+function warnDeprecatedFlag(flag: string, replacement: string): void {
+  process.stderr.write(`Warning: ${flag} is deprecated. Use ${replacement} instead.\n`);
+}
+
+function renderCategory(transaction: TransactionDetail): string {
+  if (isTransferTransaction(transaction)) {
+    return "n/a - transfer";
+  }
+  return transaction.category_id ? (transaction.category_name ?? "") : "Uncategorized";
+}
 
 async function recordMutationHistory(
   ctx: AppContext | undefined,
@@ -194,12 +244,14 @@ function decorateTransaction(
   currencyFormat?: CurrencyFormat | null,
 ): TransactionOutput {
   const amountDisplay = formatCurrency(transaction.amount, currencyFormat);
+  const isTransfer = isTransferTransaction(transaction);
   const subtransactions = Array.isArray(transaction.subtransactions)
     ? transaction.subtransactions.map((sub) => decorateSubtransaction(sub, currencyFormat))
     : transaction.subtransactions;
 
   return {
     ...transaction,
+    ...(isTransfer ? { category_id: null, category_name: null } : {}),
     amount: amountDisplay,
     amount_display: amountDisplay,
     raw_amount: transaction.amount,
@@ -216,7 +268,7 @@ function transactionRows(
     date: formatDate(transaction.date),
     account: transaction.account_name,
     payee: transaction.payee_name ?? "",
-    category: transaction.category_id ? (transaction.category_name ?? "") : "Uncategorized",
+    category: renderCategory(transaction),
     memo: transaction.memo ?? "",
     amount: formatCurrency(transaction.amount, currencyFormat),
   }));
@@ -238,11 +290,14 @@ export function applyTransactionFilters(
   transactions: TransactionDetail[],
   filters: TransactionFilters,
 ): TransactionDetail[] {
-  const { accountId, uncategorized, unapproved } = filters;
+  const { accountId, onlyUncategorized, onlyUnapproved } = filters;
   return transactions.filter((transaction) => {
     if (accountId && transaction.account_id !== accountId) return false;
-    if (uncategorized && transaction.category_id) return false;
-    if (unapproved && transaction.approved !== false) return false;
+    const isTransfer = isTransferTransaction(transaction);
+    if (filters.onlyTransfers && !isTransfer) return false;
+    if (filters.excludeTransfers && isTransfer) return false;
+    if (onlyUncategorized && transaction.category_id) return false;
+    if (onlyUnapproved && transaction.approved !== false) return false;
     return true;
   });
 }
@@ -404,15 +459,35 @@ export const txCommand: CommandModule<CliGlobalArgs> = {
               type: "string",
               describe: "Only include transactions on/after this date (YYYY-MM-DD)",
             })
-            .option("uncategorized", {
+            .option("only-uncategorized", {
               type: "boolean",
               default: false,
               describe: "Only show uncategorized transactions",
             })
-            .option("unapproved", {
+            .option("only-unapproved", {
               type: "boolean",
               default: false,
               describe: "Only show unapproved transactions",
+            })
+            .option("uncategorized", {
+              type: "boolean",
+              default: false,
+              describe: "Deprecated. Use --only-uncategorized.",
+            })
+            .option("unapproved", {
+              type: "boolean",
+              default: false,
+              describe: "Deprecated. Use --only-unapproved.",
+            })
+            .option("only-transfers", {
+              type: "boolean",
+              default: false,
+              describe: "Only show transfer transactions",
+            })
+            .option("exclude-transfers", {
+              type: "boolean",
+              default: false,
+              describe: "Exclude transfer transactions",
             })
             .check((argv) => {
               if (typeof argv.accountId === "string" && argv.accountId.trim().length === 0) {
@@ -421,26 +496,65 @@ export const txCommand: CommandModule<CliGlobalArgs> = {
               if (typeof argv.sinceDate === "string" && !DATE_ONLY.test(argv.sinceDate)) {
                 throw new Error("Provide --since-date in YYYY-MM-DD format.");
               }
-              if (argv.uncategorized && argv.unapproved) {
-                throw new Error("Use either --uncategorized or --unapproved, not both.");
+              const flags = normalizeTxListFlags(argv);
+              if (flags.onlyUncategorized && flags.onlyUnapproved) {
+                throw new Error("Use either --only-uncategorized or --only-unapproved, not both.");
+              }
+              if (flags.onlyTransfers && flags.excludeTransfers) {
+                throw new Error("Use either --only-transfers or --exclude-transfers, not both.");
               }
               return true;
             }),
         handler: async (argv) => {
-          const { appContext, format, accountId, sinceDate, uncategorized, unapproved } =
-            argv as unknown as TxListArgs;
+          const {
+            appContext,
+            format,
+            accountId,
+            sinceDate,
+            onlyTransfers,
+            excludeTransfers,
+            onlyUncategorized,
+            onlyUnapproved,
+            uncategorized,
+            unapproved,
+            quiet,
+          } = argv as unknown as TxListArgs;
           const ctx = appContext;
           if (!ctx?.ynab || !ctx.budgetId) {
             throw new Error("Missing budget context for transaction list.");
           }
-          const listType = uncategorized ? "uncategorized" : unapproved ? "unapproved" : undefined;
+          const flags = normalizeTxListFlags({
+            onlyUncategorized,
+            onlyUnapproved,
+            uncategorized,
+            unapproved,
+            onlyTransfers,
+            excludeTransfers,
+          });
+
+          if (!quiet) {
+            if (flags.usedDeprecatedUncategorized) {
+              warnDeprecatedFlag("--uncategorized", "--only-uncategorized");
+            }
+            if (flags.usedDeprecatedUnapproved) {
+              warnDeprecatedFlag("--unapproved", "--only-unapproved");
+            }
+          }
+
+          const listType = flags.onlyUncategorized
+            ? "uncategorized"
+            : flags.onlyUnapproved
+              ? "unapproved"
+              : undefined;
           const transactions = accountId
             ? await ctx.ynab.listAccountTransactions(ctx.budgetId, accountId, sinceDate, listType)
             : await ctx.ynab.listTransactions(ctx.budgetId, sinceDate, listType);
           const filtered = applyTransactionFilters(transactions, {
             accountId,
-            uncategorized,
-            unapproved,
+            onlyUncategorized: flags.onlyUncategorized,
+            onlyUnapproved: flags.onlyUnapproved,
+            onlyTransfers: flags.onlyTransfers,
+            excludeTransfers: flags.excludeTransfers,
           });
           const currencyFormat = await resolveBudgetCurrencyFormat(ctx, ctx.budgetId);
           writeTransactionList(filtered, format, { currencyFormat });

@@ -68,7 +68,46 @@ test("transaction list writes tsv output", () => {
   );
 });
 
-test("transaction filters apply account, uncategorized, and unapproved rules", () => {
+test("transaction list renders transfers with n/a category", () => {
+  const transaction = makeTransaction({
+    payee_name: "Transfer : Savings",
+    transfer_account_id: "acc2",
+    category_id: null,
+    category_name: null,
+  });
+
+  const capture = createCapture();
+  writeTransactionList([transaction], "tsv", {
+    stdout: capture.stream,
+    currencyFormat: USD_FORMAT,
+  });
+
+  expect(capture.output()).toContain("n/a - transfer");
+});
+
+test("transaction list renders transfers with null category in json", () => {
+  const transaction = makeTransaction({
+    payee_name: "Transfer : Savings",
+    transfer_account_id: "acc2",
+    category_id: "cat1",
+    category_name: "Groceries",
+  });
+
+  const capture = createCapture();
+  writeTransactionList([transaction], "json", {
+    stdout: capture.stream,
+    currencyFormat: USD_FORMAT,
+  });
+
+  const payload = JSON.parse(capture.output()) as Array<{
+    category_id: string | null;
+    category_name: string | null;
+  }>;
+  expect(payload[0]?.category_id).toBe(null);
+  expect(payload[0]?.category_name).toBe(null);
+});
+
+test("transaction filters apply account, only-uncategorized, and only-unapproved rules", () => {
   const categorized = makeTransaction({
     id: "t1",
     account_id: "acc1",
@@ -87,21 +126,50 @@ test("transaction filters apply account, uncategorized, and unapproved rules", (
     category_id: "cat2",
     approved: false,
   });
+  const transfer = makeTransaction({
+    id: "t4",
+    account_id: "acc3",
+    category_id: null,
+    approved: true,
+    transfer_account_id: "acc2",
+  });
 
-  const byAccount = applyTransactionFilters([categorized, uncategorized, unapproved], {
+  const byAccount = applyTransactionFilters([categorized, uncategorized, unapproved, transfer], {
     accountId: "acc1",
   });
   expect(byAccount.map((tx) => tx.id)).toEqual(["t1", "t3"]);
 
-  const onlyUncategorized = applyTransactionFilters([categorized, uncategorized, unapproved], {
-    uncategorized: true,
-  });
-  expect(onlyUncategorized.map((tx) => tx.id)).toEqual(["t2"]);
+  const onlyUncategorized = applyTransactionFilters(
+    [categorized, uncategorized, unapproved, transfer],
+    {
+      onlyUncategorized: true,
+    },
+  );
+  expect(onlyUncategorized.map((tx) => tx.id)).toEqual(["t2", "t4"]);
 
-  const onlyUnapproved = applyTransactionFilters([categorized, uncategorized, unapproved], {
-    unapproved: true,
-  });
+  const onlyUnapproved = applyTransactionFilters(
+    [categorized, uncategorized, unapproved, transfer],
+    {
+      onlyUnapproved: true,
+    },
+  );
   expect(onlyUnapproved.map((tx) => tx.id)).toEqual(["t3"]);
+
+  const onlyTransfers = applyTransactionFilters(
+    [categorized, uncategorized, unapproved, transfer],
+    {
+      onlyTransfers: true,
+    },
+  );
+  expect(onlyTransfers.map((tx) => tx.id)).toEqual(["t4"]);
+
+  const excludeTransfers = applyTransactionFilters(
+    [categorized, uncategorized, unapproved, transfer],
+    {
+      excludeTransfers: true,
+    },
+  );
+  expect(excludeTransfers.map((tx) => tx.id)).toEqual(["t1", "t2", "t3"]);
 });
 
 test("transaction detail writes ids output", () => {
