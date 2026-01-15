@@ -5,7 +5,12 @@ import path from "node:path";
 import { expect, test } from "bun:test";
 
 import { openJournalDb } from "@/journal/db";
-import { getHistoryAction, listHistoryActions, recordHistoryAction } from "@/journal/history";
+import {
+  getHistoryAction,
+  getHistoryActionByIndex,
+  listHistoryActions,
+  recordHistoryAction,
+} from "@/journal/history";
 
 async function createTempDb() {
   const dir = await mkdtemp(path.join(os.tmpdir(), "nab-history-"));
@@ -55,4 +60,38 @@ test("listHistoryActions respects since and limit filters", async () => {
 
   const limited = listHistoryActions(db, { limit: 1 });
   expect(limited).toHaveLength(1);
+});
+
+test("getHistoryActionByIndex returns the most recent action by index", async () => {
+  const db = await createTempDb();
+  const oldest = recordHistoryAction(db, "tx.memo.set", {
+    argv: { id: ["t1"] },
+    txIds: ["t1"],
+  });
+  const middle = recordHistoryAction(db, "tx.memo.clear", {
+    argv: { id: ["t2"] },
+    txIds: ["t2"],
+  });
+  const newest = recordHistoryAction(db, "tx.approve", {
+    argv: { id: ["t3"] },
+    txIds: ["t3"],
+  });
+
+  db.query("update history_actions set created_at = ? where id = ?").run(
+    "2000-01-01T00:00:00Z",
+    oldest.id,
+  );
+  db.query("update history_actions set created_at = ? where id = ?").run(
+    "2001-01-01T00:00:00Z",
+    middle.id,
+  );
+  db.query("update history_actions set created_at = ? where id = ?").run(
+    "2002-01-01T00:00:00Z",
+    newest.id,
+  );
+
+  expect(getHistoryActionByIndex(db, 0)?.id).toBe(newest.id);
+  expect(getHistoryActionByIndex(db, 1)?.id).toBe(middle.id);
+  expect(getHistoryActionByIndex(db, 2)?.id).toBe(oldest.id);
+  expect(getHistoryActionByIndex(db, 3)).toBeNull();
 });

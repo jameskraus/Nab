@@ -94,6 +94,37 @@ export function getHistoryAction(db: Database, id: string): HistoryAction | null
   };
 }
 
+export function getHistoryActionByIndex(db: Database, index: number): HistoryAction | null {
+  const row = db
+    .query<
+      {
+        id: string;
+        createdAt: string;
+        actionType: string;
+        payloadJson: string;
+        inverseJson: string | null;
+      },
+      [number]
+    >(
+      `select id, created_at as createdAt, action_type as actionType,
+              payload_json as payloadJson, inverse_patch_json as inverseJson
+       from history_actions
+       order by created_at desc
+       limit 1 offset ?`,
+    )
+    .get(index);
+
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    createdAt: row.createdAt,
+    actionType: row.actionType,
+    payload: JSON.parse(row.payloadJson) as HistoryActionPayload,
+    inversePatch: row.inverseJson ? JSON.parse(row.inverseJson) : undefined,
+  };
+}
+
 export function listHistoryActions(db: Database, query: HistoryQuery = {}): HistoryAction[] {
   const limit = query.limit ?? 20;
   const since = query.since;

@@ -128,10 +128,10 @@ Scope:
   - inverse patch (best effort)
 
 Commands:
-- `nab history show` (new)
+- `nab history list` (new)
 
 Acceptance criteria:
-- after a mutation, `history show` lists it
+- after a mutation, `history list` lists it
 - history includes enough data to support a future revert
 
 ## Bead 9 — Integration tests (real YNAB budget)

@@ -3,9 +3,15 @@ import type { CommandModule } from "yargs";
 import type { AppContext } from "@/app/createAppContext";
 import { requireApplyConfirmation } from "@/cli/mutations";
 import type { CliGlobalArgs } from "@/cli/types";
-import { type OutputWriterOptions, createOutputWriter, fieldColumn, parseOutputFormat } from "@/io";
+import { createOutputWriter, fieldColumn, parseOutputFormat } from "@/io";
 import { normalizeArgv } from "@/journal/argv";
-import { getHistoryAction, listHistoryActions, recordHistoryAction } from "@/journal/history";
+import {
+  type HistoryAction,
+  getHistoryAction,
+  getHistoryActionByIndex,
+  listHistoryActions,
+  recordHistoryAction,
+} from "@/journal/history";
 import { type RevertResult, revertHistoryAction } from "@/journal/revert";
 
 export const historyCommand: CommandModule<CliGlobalArgs> = {
@@ -14,8 +20,8 @@ export const historyCommand: CommandModule<CliGlobalArgs> = {
   builder: (y) =>
     y
       .command({
-        command: "show",
-        describe: "Show recent actions recorded locally",
+        command: "list",
+        describe: "List recent actions recorded locally",
         builder: (yy) =>
           yy
             .option("limit", {
@@ -39,39 +45,40 @@ export const historyCommand: CommandModule<CliGlobalArgs> = {
           }
 
           const actions = listHistoryActions(ctx.db, { limit, since });
-          const formatChoice = parseOutputFormat(format, "table");
-
-          if (formatChoice === "json") {
-            createOutputWriter("json").write(actions);
-            return;
+          writeHistoryList(actions, format);
+        },
+      })
+      .command({
+        command: "show <idOrIndex>",
+        describe: "Show a recorded action by id or index",
+        builder: (yy) =>
+          yy.positional("idOrIndex", {
+            type: "string",
+            describe: "History id or zero-based index (0 is most recent)",
+          }),
+        handler: (argv) => {
+          const { appContext, format, idOrIndex } = argv as unknown as CliGlobalArgs & {
+            appContext?: AppContext;
+            idOrIndex: string;
+          };
+          const ctx = appContext;
+          if (!ctx?.db) {
+            throw new Error("History database is not available.");
           }
 
-          if (formatChoice === "ids") {
-            createOutputWriter("ids").write(actions.map((action) => action.id));
-            return;
+          const selector = parseHistorySelector(idOrIndex);
+          const action =
+            selector.type === "index"
+              ? getHistoryActionByIndex(ctx.db, selector.index)
+              : getHistoryAction(ctx.db, selector.id);
+          if (!action) {
+            if (selector.type === "index") {
+              throw new Error(`History index out of range: ${selector.index}`);
+            }
+            throw new Error(`History action not found: ${selector.id}`);
           }
 
-          const rows = actions.map((action) => ({
-            id: action.id,
-            createdAt: action.createdAt,
-            actionType: action.actionType,
-            txIds: action.payload.txIds?.join(",") ?? "",
-          }));
-
-          if (formatChoice === "tsv") {
-            createOutputWriter("tsv").write(rows);
-            return;
-          }
-
-          createOutputWriter("table").write({
-            columns: [
-              fieldColumn("createdAt", { header: "Created" }),
-              fieldColumn("actionType", { header: "Action" }),
-              fieldColumn("txIds", { header: "Tx Ids" }),
-              fieldColumn("id", { header: "Id" }),
-            ],
-            rows,
-          });
+          writeHistoryDetail(action, format);
         },
       })
       .command({
@@ -136,12 +143,104 @@ export const historyCommand: CommandModule<CliGlobalArgs> = {
   handler: () => {},
 };
 
+type HistoryRow = {
+  id: string;
+  createdAt: string;
+  actionType: string;
+  txIds: string;
+};
+
 type RevertRow = {
   id: string;
   status: string;
   patch: string;
   restoredId: string;
 };
+
+type HistorySelector = { type: "id"; id: string } | { type: "index"; index: number };
+
+function parseHistorySelector(value: string): HistorySelector {
+  const trimmed = value.trim();
+  if (/^-?\d+$/.test(trimmed)) {
+    const index = Number.parseInt(trimmed, 10);
+    if (index < 0) {
+      throw new Error("History index must be 0 or greater.");
+    }
+    return { type: "index", index };
+  }
+  return { type: "id", id: trimmed };
+}
+
+function historyRows(actions: HistoryAction[]): HistoryRow[] {
+  return actions.map((action) => ({
+    id: action.id,
+    createdAt: action.createdAt,
+    actionType: action.actionType,
+    txIds: action.payload.txIds?.join(",") ?? "",
+  }));
+}
+
+function writeHistoryList(actions: HistoryAction[], rawFormat?: string): void {
+  const format = parseOutputFormat(rawFormat, "table");
+
+  if (format === "json") {
+    createOutputWriter("json").write(actions);
+    return;
+  }
+
+  if (format === "ids") {
+    createOutputWriter("ids").write(actions.map((action) => action.id));
+    return;
+  }
+
+  const rows = historyRows(actions);
+
+  if (format === "tsv") {
+    createOutputWriter("tsv").write(rows);
+    return;
+  }
+
+  createOutputWriter("table").write({
+    columns: [
+      fieldColumn("createdAt", { header: "Created" }),
+      fieldColumn("actionType", { header: "Action" }),
+      fieldColumn("txIds", { header: "Tx Ids" }),
+      fieldColumn("id", { header: "Id" }),
+    ],
+    rows,
+  });
+}
+
+function writeHistoryDetail(action: HistoryAction, rawFormat?: string): void {
+  const format = parseOutputFormat(rawFormat, "table");
+
+  if (format === "json") {
+    createOutputWriter("json").write(action);
+    return;
+  }
+
+  if (format === "ids") {
+    createOutputWriter("ids").write([action.id]);
+    return;
+  }
+
+  const rows = historyRows([action]);
+
+  if (format === "tsv") {
+    createOutputWriter("tsv").write(rows);
+    return;
+  }
+
+  createOutputWriter("table").write({
+    columns: [
+      fieldColumn("createdAt", { header: "Created" }),
+      fieldColumn("actionType", { header: "Action" }),
+      fieldColumn("txIds", { header: "Tx Ids" }),
+      fieldColumn("id", { header: "Id" }),
+    ],
+    rows,
+  });
+}
 
 function writeRevertResults(results: RevertResult[], rawFormat?: string): void {
   const format = parseOutputFormat(rawFormat, "table");

@@ -94,7 +94,7 @@ Global middleware lives in `src/cli/root.ts` and attaches `appContext` for most 
 
 Rules (current):
 - `auth` and `config`: no middleware (handlers run without `appContext`).
-- `history show`: `{ requireToken: false, requireBudgetId: false, createDb: true }`.
+- `history list/show`: `{ requireToken: false, requireBudgetId: false, createDb: true }`.
 - `history revert`: `{ requireToken: true, requireBudgetId: true, createDb: true }`.
 - `budget list`: `{ requireToken: true, requireBudgetId: false, createDb: false }`.
 - `budget current`: `{ requireToken: false, requireBudgetId: false, createDb: false }`.
@@ -118,7 +118,7 @@ Why this matters:
 `yargs` → handler → config/auth helpers (no `appContext`)
 
 ### Local-only commands
-- `history show` uses the SQLite journal (no YNAB client).
+- `history list/show` uses the SQLite journal (no YNAB client).
 - `budget current` reads the effective budget id (no YNAB client).
 
 ### History reverts

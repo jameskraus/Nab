@@ -65,7 +65,8 @@ Notes:
 - Transfer transactions render category as `n/a - transfer` in table/tsv output; JSON keeps `category_id` and `category_name` as null.
 
 History (local-only):
-- `nab history show [--limit <n>] [--since <ISO 8601>] [--format ...]`
+- `nab history list [--limit <n>] [--since <ISO 8601>] [--format ...]`
+- `nab history show <id-or-index> [--format ...]`
 
 Examples:
 - `nab budget list --format tsv`

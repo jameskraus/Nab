@@ -293,7 +293,7 @@ if (!token || !budgetId) {
       expect(setResult.exitCode).toBe(0);
 
       const historyResult = await runCli(
-        ["history", "show", "--limit", "5", "--format", "json"],
+        ["history", "list", "--limit", "5", "--format", "json"],
         env,
       );
       expect(historyResult.exitCode).toBe(0);
