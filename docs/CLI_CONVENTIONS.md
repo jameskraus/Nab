@@ -1,7 +1,7 @@
 # CLI conventions
 
 This document captures CLI behavior expectations for `nab`.
-Examples use `npx -y @jameskraus/nab` (or `bunx @jameskraus/nab` / `pnpx @jameskraus/nab`).
+Requires Bun (https://bun.sh). Examples use `bunx @jameskraus/nab`.
 
 ## Compatibility policy
 
@@ -23,8 +23,8 @@ Supported formats:
 - `ids` (just ids, newline-delimited)
 
 Examples:
-- `npx -y @jameskraus/nab config show --format json`
-- `npx -y @jameskraus/nab config show --format tsv`
+- `bunx @jameskraus/nab config show --format json`
+- `bunx @jameskraus/nab config show --format tsv`
 
 ## Dates & locale
 
@@ -36,28 +36,28 @@ Examples:
 Precedence (highest to lowest):
 1. CLI flags (`--auth`, `--budget-id`)
 2. Environment variables (`NAB_AUTH_METHOD`, `NAB_TOKENS`, `NAB_BUDGET_ID`, `NAB_CONFIG_DIR`, `NAB_OAUTH_CLIENT_ID`, `NAB_OAUTH_CLIENT_SECRET`, `NAB_OAUTH_SCOPE`)
-3. Config file (`npx -y @jameskraus/nab config set`)
+3. Config file (`bunx @jameskraus/nab config set`)
 
 ## Read-only commands
 
 Read-only commands never mutate YNAB data and are safe for agents.
 
 Budgets:
-- `npx -y @jameskraus/nab budget list [--format table|json|tsv|ids]`
+- `bunx @jameskraus/nab budget list [--format table|json|tsv|ids]`
 
 Accounts:
-- `npx -y @jameskraus/nab account list [--format ...]` (requires budget id)
+- `bunx @jameskraus/nab account list [--format ...]` (requires budget id)
 
 Categories:
-- `npx -y @jameskraus/nab category list [--format ...]` (requires budget id)
+- `bunx @jameskraus/nab category list [--format ...]` (requires budget id)
 
 Payees:
-- `npx -y @jameskraus/nab payee list [--format ...]` (requires budget id)
+- `bunx @jameskraus/nab payee list [--format ...]` (requires budget id)
 
 Transactions:
-- `npx -y @jameskraus/nab tx list [--since-date YYYY-MM-DD] [--account-id <id>] [--only-uncategorized] [--only-unapproved] [--only-transfers] [--exclude-transfers] [--format ...]`
-- `npx -y @jameskraus/nab tx get --id <transaction-id> [--format ...]`
-- `npx -y @jameskraus/nab tx create --account-id <id> --date YYYY-MM-DD --amount <amount> [--payee-id ...] [--category-id ...] [--memo ...] [--cleared ...] [--approved true|false] [--flag-color ...] [--format ...] [--dry-run] [--yes]`
+- `bunx @jameskraus/nab tx list [--since-date YYYY-MM-DD] [--account-id <id>] [--only-uncategorized] [--only-unapproved] [--only-transfers] [--exclude-transfers] [--format ...]`
+- `bunx @jameskraus/nab tx get --id <transaction-id> [--format ...]`
+- `bunx @jameskraus/nab tx create --account-id <id> --date YYYY-MM-DD --amount <amount> [--payee-id ...] [--category-id ...] [--memo ...] [--cleared ...] [--approved true|false] [--flag-color ...] [--format ...] [--dry-run] [--yes]`
 
 Notes:
 - `--only-uncategorized` and `--only-unapproved` are mutually exclusive.
@@ -66,17 +66,17 @@ Notes:
 - Transfer transactions render category as `n/a - transfer` in table/tsv output; JSON keeps `category_id` and `category_name` as null.
 
 History (local-only):
-- `npx -y @jameskraus/nab history list [--limit <n>] [--since <ISO 8601>] [--format ...]`
-- `npx -y @jameskraus/nab history show <id-or-index> [--format ...]`
+- `bunx @jameskraus/nab history list [--limit <n>] [--since <ISO 8601>] [--format ...]`
+- `bunx @jameskraus/nab history show <id-or-index> [--format ...]`
 
 Examples:
-- `npx -y @jameskraus/nab budget list --format tsv`
-- `npx -y @jameskraus/nab account list --format ids`
-- `npx -y @jameskraus/nab tx list --account-id 123 --format json`
-- `npx -y @jameskraus/nab tx list --since-date 2026-01-01 --only-uncategorized --format json`
-- `npx -y @jameskraus/nab tx list --only-unapproved --format json`
-- `npx -y @jameskraus/nab tx list --exclude-transfers --format json`
-- `npx -y @jameskraus/nab tx get --id 12345 --format json`
+- `bunx @jameskraus/nab budget list --format tsv`
+- `bunx @jameskraus/nab account list --format ids`
+- `bunx @jameskraus/nab tx list --account-id 123 --format json`
+- `bunx @jameskraus/nab tx list --since-date 2026-01-01 --only-uncategorized --format json`
+- `bunx @jameskraus/nab tx list --only-unapproved --format json`
+- `bunx @jameskraus/nab tx list --exclude-transfers --format json`
+- `bunx @jameskraus/nab tx get --id 12345 --format json`
 
 ## Mutations
 
@@ -87,7 +87,7 @@ All mutating commands must:
 - be **idempotent** (setting a field to its current value is a no-op)
 
 History reverts:
-- `npx -y @jameskraus/nab history revert --id <history-id> [--format ...] [--dry-run] [--yes]`
+- `bunx @jameskraus/nab history revert --id <history-id> [--format ...] [--dry-run] [--yes]`
 
 ## Errors
 

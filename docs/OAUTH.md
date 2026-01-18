@@ -14,13 +14,13 @@ alongside the existing Personal Access Token (PAT) workflow.
 
 ### Primary commands
 
-- `npx -y @jameskraus/nab auth oauth init`
+- `bunx @jameskraus/nab auth oauth init`
   - Guided setup wizard that:
     - Shows the required redirect URI
     - Prompts for client id + client secret
     - Stores settings in config
 
-- `npx -y @jameskraus/nab auth oauth configure`
+- `bunx @jameskraus/nab auth oauth configure`
   - Stores client settings (client id, optional secret, scope).
   - Flags (proposed):
     - `--client-id <id>` (required unless already configured)
@@ -34,7 +34,7 @@ alongside the existing Personal Access Token (PAT) workflow.
     - `NAB_OAUTH_CLIENT_SECRET`
     - `NAB_OAUTH_SCOPE`
 
-- `npx -y @jameskraus/nab auth oauth login`
+- `bunx @jameskraus/nab auth oauth login`
   - Runs the full Authorization Code Grant flow (requires configured client id/secret):
     1) Start loopback server
     2) Open or print authorization URL
@@ -48,19 +48,19 @@ alongside the existing Personal Access Token (PAT) workflow.
     - `--scope read-only|full` (default config value, else `full`)
     - `--set-default-auth` (default true; sets auth method preference)
 
-- `npx -y @jameskraus/nab auth oauth status`
+- `bunx @jameskraus/nab auth oauth status`
   - Shows redacted OAuth state (logged in, expiry, scope, auth preference).
 
-- `npx -y @jameskraus/nab auth oauth refresh`
+- `bunx @jameskraus/nab auth oauth refresh`
   - Forces a refresh token flow.
 
-- `npx -y @jameskraus/nab auth oauth logout`
+- `bunx @jameskraus/nab auth oauth logout`
   - Clears stored OAuth tokens (keeps client settings unless `--all`).
 
-- `npx -y @jameskraus/nab auth use <oauth|pat>`
+- `bunx @jameskraus/nab auth use <oauth|pat>`
   - Sets a default auth preference in config.
 
-PAT commands remain unchanged (`npx -y @jameskraus/nab auth token add/list/check/remove`).
+PAT commands remain unchanged (`bunx @jameskraus/nab auth token add/list/check/remove`).
 
 YNAB Developer Settings: https://app.ynab.com/settings/developer
 
@@ -150,7 +150,7 @@ Config precedence remains:
   - `config.authMethod`
   - Heuristic: prefer OAuth if configured, else PAT
 - When OAuth is active:
-  - If no access token, prompt to run `npx -y @jameskraus/nab auth oauth login`
+  - If no access token, prompt to run `bunx @jameskraus/nab auth oauth login`
   - If expired/near expiry, refresh before creating `YnabClient`
   - Use `[accessToken]` to instantiate `YnabClient` (same API as PATs)
 - When PAT is active:
@@ -196,5 +196,5 @@ AppContext tests:
 - Missing all auth -> error message mentions OAuth login
 
 CLI smoke tests:
-- `npx -y @jameskraus/nab auth oauth status --format json` redacts secrets
-- `npx -y @jameskraus/nab auth use oauth` updates config
+- `bunx @jameskraus/nab auth oauth status --format json` redacts secrets
+- `bunx @jameskraus/nab auth use oauth` updates config

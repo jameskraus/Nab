@@ -3,28 +3,21 @@
   "version": "0.1.0",
   "type": "module",
   "bin": {
-    "nab": "bin/nab.js"
+    "nab": "src/cli/index.ts"
   },
   "scripts": {
     "nab": "bun src/cli/index.ts",
     "dev": "bun --hot src/cli/index.ts",
     "start": "bun src/cli/index.ts",
     "build": "bun build --compile --outfile=dist/nab src/cli/index.ts",
-    "build:dist": "bun run build:dist:darwin-arm64 && bun run build:dist:darwin-x64 && bun run build:dist:linux-x64 && bun run build:dist:linux-arm64 && bun run build:dist:win32-x64",
-    "build:dist:darwin-arm64": "bun build --compile --target=bun-darwin-arm64 --outfile=dist/nab-darwin-arm64 src/cli/index.ts",
-    "build:dist:darwin-x64": "bun build --compile --target=bun-darwin-x64 --outfile=dist/nab-darwin-x64 src/cli/index.ts",
-    "build:dist:linux-x64": "bun build --compile --target=bun-linux-x64 --outfile=dist/nab-linux-x64 src/cli/index.ts",
-    "build:dist:linux-arm64": "bun build --compile --target=bun-linux-arm64 --outfile=dist/nab-linux-arm64 src/cli/index.ts",
-    "build:dist:win32-x64": "bun build --compile --target=bun-windows-x64 --outfile=dist/nab-win32-x64.exe src/cli/index.ts",
     "lint": "biome check .",
     "format": "biome format . --write",
     "check": "bun run lint && bun run typecheck && bun test",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "prepublishOnly": "bun run build:dist",
     "prepare": "husky"
   },
-  "files": ["bin/", "dist/", "README.md"],
+  "files": ["src/", "README.md", "tsconfig.json"],
   "publishConfig": {
     "access": "public"
   },

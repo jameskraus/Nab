@@ -42,7 +42,7 @@ YNAB models cleared status as one of:
 
 Some transactions are transfers between two YNAB accounts; these have transfer metadata (transfer account id, counterpart transaction id).
 
-**V1 scope**: `npx -y @jameskraus/nab tx account set` must error on transfers.
+**V1 scope**: `bunx @jameskraus/nab tx account set` must error on transfers.
 
 ### Delta requests
 
