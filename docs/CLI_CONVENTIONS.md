@@ -1,6 +1,7 @@
 # CLI conventions
 
 This document captures CLI behavior expectations for `nab`.
+Examples use `npx -y @jameskraus/nab` (or `bunx @jameskraus/nab` / `pnpx @jameskraus/nab`).
 
 ## Compatibility policy
 
@@ -22,8 +23,8 @@ Supported formats:
 - `ids` (just ids, newline-delimited)
 
 Examples:
-- `nab config show --format json`
-- `nab config show --format tsv`
+- `npx -y @jameskraus/nab config show --format json`
+- `npx -y @jameskraus/nab config show --format tsv`
 
 ## Dates & locale
 
@@ -35,28 +36,28 @@ Examples:
 Precedence (highest to lowest):
 1. CLI flags (`--auth`, `--budget-id`)
 2. Environment variables (`NAB_AUTH_METHOD`, `NAB_TOKENS`, `NAB_BUDGET_ID`, `NAB_CONFIG_DIR`, `NAB_OAUTH_CLIENT_ID`, `NAB_OAUTH_CLIENT_SECRET`, `NAB_OAUTH_SCOPE`)
-3. Config file (`nab config set`)
+3. Config file (`npx -y @jameskraus/nab config set`)
 
 ## Read-only commands
 
 Read-only commands never mutate YNAB data and are safe for agents.
 
 Budgets:
-- `nab budget list [--format table|json|tsv|ids]`
+- `npx -y @jameskraus/nab budget list [--format table|json|tsv|ids]`
 
 Accounts:
-- `nab account list [--format ...]` (requires budget id)
+- `npx -y @jameskraus/nab account list [--format ...]` (requires budget id)
 
 Categories:
-- `nab category list [--format ...]` (requires budget id)
+- `npx -y @jameskraus/nab category list [--format ...]` (requires budget id)
 
 Payees:
-- `nab payee list [--format ...]` (requires budget id)
+- `npx -y @jameskraus/nab payee list [--format ...]` (requires budget id)
 
 Transactions:
-- `nab tx list [--since-date YYYY-MM-DD] [--account-id <id>] [--only-uncategorized] [--only-unapproved] [--only-transfers] [--exclude-transfers] [--format ...]`
-- `nab tx get --id <transaction-id> [--format ...]`
-- `nab tx create --account-id <id> --date YYYY-MM-DD --amount <amount> [--payee-id ...] [--category-id ...] [--memo ...] [--cleared ...] [--approved true|false] [--flag-color ...] [--format ...] [--dry-run] [--yes]`
+- `npx -y @jameskraus/nab tx list [--since-date YYYY-MM-DD] [--account-id <id>] [--only-uncategorized] [--only-unapproved] [--only-transfers] [--exclude-transfers] [--format ...]`
+- `npx -y @jameskraus/nab tx get --id <transaction-id> [--format ...]`
+- `npx -y @jameskraus/nab tx create --account-id <id> --date YYYY-MM-DD --amount <amount> [--payee-id ...] [--category-id ...] [--memo ...] [--cleared ...] [--approved true|false] [--flag-color ...] [--format ...] [--dry-run] [--yes]`
 
 Notes:
 - `--only-uncategorized` and `--only-unapproved` are mutually exclusive.
@@ -65,17 +66,17 @@ Notes:
 - Transfer transactions render category as `n/a - transfer` in table/tsv output; JSON keeps `category_id` and `category_name` as null.
 
 History (local-only):
-- `nab history list [--limit <n>] [--since <ISO 8601>] [--format ...]`
-- `nab history show <id-or-index> [--format ...]`
+- `npx -y @jameskraus/nab history list [--limit <n>] [--since <ISO 8601>] [--format ...]`
+- `npx -y @jameskraus/nab history show <id-or-index> [--format ...]`
 
 Examples:
-- `nab budget list --format tsv`
-- `nab account list --format ids`
-- `nab tx list --account-id 123 --format json`
-- `nab tx list --since-date 2026-01-01 --only-uncategorized --format json`
-- `nab tx list --only-unapproved --format json`
-- `nab tx list --exclude-transfers --format json`
-- `nab tx get --id 12345 --format json`
+- `npx -y @jameskraus/nab budget list --format tsv`
+- `npx -y @jameskraus/nab account list --format ids`
+- `npx -y @jameskraus/nab tx list --account-id 123 --format json`
+- `npx -y @jameskraus/nab tx list --since-date 2026-01-01 --only-uncategorized --format json`
+- `npx -y @jameskraus/nab tx list --only-unapproved --format json`
+- `npx -y @jameskraus/nab tx list --exclude-transfers --format json`
+- `npx -y @jameskraus/nab tx get --id 12345 --format json`
 
 ## Mutations
 
@@ -86,7 +87,7 @@ All mutating commands must:
 - be **idempotent** (setting a field to its current value is a no-op)
 
 History reverts:
-- `nab history revert --id <history-id> [--format ...] [--dry-run] [--yes]`
+- `npx -y @jameskraus/nab history revert --id <history-id> [--format ...] [--dry-run] [--yes]`
 
 ## Errors
 

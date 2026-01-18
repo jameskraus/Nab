@@ -23,8 +23,8 @@ Scope:
 - top-level error mapping to `ExitCode` codes
 
 Acceptance criteria:
-- running `nab --help` works
-- `nab config show --format json` prints valid JSON
+- running `npx -y @jameskraus/nab --help` works
+- `npx -y @jameskraus/nab config show --format json` prints valid JSON
 - usage errors return exit code 2
 
 Key files:
@@ -40,8 +40,8 @@ Scope:
 - resolve `--budget-id` override
 
 Acceptance criteria:
-- `nab config set --tokens ...`
-- `nab config set --budget-id ...`
+- `npx -y @jameskraus/nab config set --tokens ...`
+- `npx -y @jameskraus/nab config set --budget-id ...`
 - any command can resolve effective tokens + budget id (or fail with actionable error)
 
 Key files:
@@ -81,12 +81,12 @@ Key files:
 ## Bead 5 — Read-only commands (agent-safe)
 Goal: let agents query budgets and transactions.
 Commands:
-- `nab budget list`
-- `nab account list`
-- `nab category list`
-- `nab payee list`
-- `nab tx list`
-- `nab tx get --id ...`
+- `npx -y @jameskraus/nab budget list`
+- `npx -y @jameskraus/nab account list`
+- `npx -y @jameskraus/nab category list`
+- `npx -y @jameskraus/nab payee list`
+- `npx -y @jameskraus/nab tx list`
+- `npx -y @jameskraus/nab tx get --id ...`
 
 Acceptance criteria:
 - outputs support `--format json`
@@ -95,21 +95,21 @@ Acceptance criteria:
 ## Bead 6 — Transaction mutation operations (v1 core)
 Goal: implement the common transaction operations as high-level CLI commands.
 Commands (all must support `--dry-run` and require `--yes` to apply):
-- `nab tx approve --id ...`
-- `nab tx unapprove --id ...`
-- `nab tx delete --id ...`
-- `nab tx category set --id ... --category-id ... | --category-name ...`
-- `nab tx category clear --id ...`
-- `nab tx memo get --id ...`
-- `nab tx memo set --id ... --memo ...`
-- `nab tx memo clear --id ...`
-- `nab tx flag set --id ... --color ...`
-- `nab tx flag clear --id ...`
-- `nab tx cleared set --id ... --status cleared|uncleared|reconciled`
-- `nab tx date set YYYY-MM-DD --id ...`
-- `nab tx payee set --id ... --payee-id ... | --payee-name ...`
-- `nab tx amount set --id ... --amount ...` (single id only)
-- `nab tx account set --id ... --account-id ... | --account-name ...` (error on transfers)
+- `npx -y @jameskraus/nab tx approve --id ...`
+- `npx -y @jameskraus/nab tx unapprove --id ...`
+- `npx -y @jameskraus/nab tx delete --id ...`
+- `npx -y @jameskraus/nab tx category set --id ... --category-id ... | --category-name ...`
+- `npx -y @jameskraus/nab tx category clear --id ...`
+- `npx -y @jameskraus/nab tx memo get --id ...`
+- `npx -y @jameskraus/nab tx memo set --id ... --memo ...`
+- `npx -y @jameskraus/nab tx memo clear --id ...`
+- `npx -y @jameskraus/nab tx flag set --id ... --color ...`
+- `npx -y @jameskraus/nab tx flag clear --id ...`
+- `npx -y @jameskraus/nab tx cleared set --id ... --status cleared|uncleared|reconciled`
+- `npx -y @jameskraus/nab tx date set YYYY-MM-DD --id ...`
+- `npx -y @jameskraus/nab tx payee set --id ... --payee-id ... | --payee-name ...`
+- `npx -y @jameskraus/nab tx amount set --id ... --amount ...` (single id only)
+- `npx -y @jameskraus/nab tx account set --id ... --account-id ... | --account-name ...` (error on transfers)
 
 Acceptance criteria:
 - idempotent operations: re-running same command does not change anything
@@ -117,7 +117,7 @@ Acceptance criteria:
 - ambiguous name resolution returns error with candidates
 
 ## Bead 7 — History journaling for applied actions
-Goal: record what `nab` did locally for later inspection and potential revert.
+Goal: record what `npx -y @jameskraus/nab` did locally for later inspection and potential revert.
 Scope:
 - write a `history_actions` record for every applied mutation
 - record:
@@ -128,7 +128,7 @@ Scope:
   - inverse patch (best effort)
 
 Commands:
-- `nab history list` (new)
+- `npx -y @jameskraus/nab history list` (new)
 
 Acceptance criteria:
 - after a mutation, `history list` lists it

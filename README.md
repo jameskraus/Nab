@@ -9,33 +9,33 @@ It is intentionally designed as a **"porcelain" CLI for AI agents**:
 - local SQLite for **history/journaling**
 
 Example list filters:
-- `nab tx list --account-id <id> --format json`
-- `nab tx list --only-uncategorized --format json`
-- `nab tx list --only-unapproved --format json`
-- `nab tx list --exclude-transfers --format json`
+- `npx -y @jameskraus/nab tx list --account-id <id> --format json`
+- `npx -y @jameskraus/nab tx list --only-uncategorized --format json`
+- `npx -y @jameskraus/nab tx list --only-unapproved --format json`
+- `npx -y @jameskraus/nab tx list --exclude-transfers --format json`
 
 ## Quick start
 
+Use `npx -y @jameskraus/nab` (or `bunx @jameskraus/nab` / `pnpx @jameskraus/nab`).
+
 ```bash
-bun install
+# See available commands
+npx -y @jameskraus/nab --help
 
 # Set your tokens (Personal Access Tokens)
-nab auth token add "<PAT1>"
-nab auth token add "<PAT2>"
+npx -y @jameskraus/nab auth token add "<PAT1>"
+npx -y @jameskraus/nab auth token add "<PAT2>"
 
 
 # Set default budget for this machine
-nab config set --budget-id 06443689-ec9d-45d9-a37a-53dc60014769
+npx -y @jameskraus/nab config set --budget-id 06443689-ec9d-45d9-a37a-53dc60014769
 
 # Or use environment variables
 export NAB_TOKENS="<PAT1>,<PAT2>"
 export NAB_BUDGET_ID=06443689-ec9d-45d9-a37a-53dc60014769
 
 # Show config (redacts tokens)
-nab config show
-
-# See available commands
-nab --help
+npx -y @jameskraus/nab config show
 ```
 
 ## OAuth (optional)
@@ -44,10 +44,10 @@ nab --help
 
 ```bash
 # Initialize OAuth (prints redirect URI + saves client id/secret)
-nab auth oauth init
+npx -y @jameskraus/nab auth oauth init
 
 # Login (starts local server + opens browser)
-nab auth oauth login
+npx -y @jameskraus/nab auth oauth login
 ```
 
 ## Development
@@ -61,6 +61,13 @@ bun run dev -- --help
 bun test
 bun run lint
 ```
+
+## Publishing
+
+1) Bump `package.json` version as needed.
+2) `bun run build:dist` (outputs `dist/nab-<platform>-<arch>` binaries).
+3) `npm login` (account must have access to `@jameskraus`).
+4) `npm publish --access public`
 
 ## Logging
 
