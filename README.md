@@ -65,8 +65,7 @@ bun run lint
 ## Publishing
 
 1) Bump `package.json` version as needed.
-2) `bunx npm login` (account must have access to `@jameskraus`).
-3) `bunx npm publish --access public`
+2) `bunx npm publish`
 
 ## Logging
 
