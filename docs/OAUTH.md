@@ -132,7 +132,7 @@ Config precedence remains:
 - Use a cryptographically strong `state` and verify it.
 - No PKCE unless YNAB documents support for it (currently not required).
 - Never print access/refresh tokens in CLI output.
-- Redact secrets in all outputs (`config show`, `oauth status`).
+- Redact secrets in all outputs (`auth oauth status`).
 - Lock down config file permissions (best-effort `chmod 600`, dir `chmod 700`).
 - Refresh tokens rotate; always store the new refresh token.
 - Avoid concurrent refresh races:

@@ -24,7 +24,7 @@ Notes (current behavior):
 - Read-only commands call the YNAB API directly via `ctx.ynab.*` (e.g., `budget list`, `account/category/payee list`, `tx list/get`).
 - `tx list` uses the account-scoped endpoint when `--account-id` is provided and forwards server-side type filters (`uncategorized` / `unapproved`).
 - Mutating commands use the domain service layer for transaction operations.
-- `auth` and `config` commands bypass the global middleware and talk to config/auth helpers directly.
+- `auth` commands and `budget set-default` bypass the global middleware and talk to config/auth helpers directly.
 - CLI handlers do not execute SQL directly; they call journal helpers in `src/journal/**`.
 
 ### 2) App context / composition root (`src/app/createAppContext.ts`)
@@ -93,7 +93,8 @@ Responsibilities:
 Global middleware lives in `src/cli/root.ts` and attaches `appContext` for most commands.
 
 Rules (current):
-- `auth` and `config`: no middleware (handlers run without `appContext`).
+- `auth`: no middleware (handlers run without `appContext`).
+- `budget set-default`: no middleware (local config only).
 - `history list/show`: `{ requireToken: false, requireBudgetId: false, createDb: true }`.
 - `history revert`: `{ requireToken: true, requireBudgetId: true, createDb: true }`.
 - `budget list`: `{ requireToken: true, requireBudgetId: false, createDb: false }`.
@@ -114,12 +115,13 @@ Why this matters:
 ### Mutation commands
 `yargs` → middleware → `createAppContext` (with DB) → CLI handler → `TransactionService` → YNAB client → journal → output
 
-### Auth/config commands
+### Auth commands
 `yargs` → handler → config/auth helpers (no `appContext`)
 
 ### Local-only commands
 - `history list/show` uses the SQLite journal (no YNAB client).
 - `budget current` reads the effective budget id (no YNAB client).
+- `budget set-default` writes the default budget id to config (no YNAB client).
 
 ### History reverts
 - `history revert` reads the SQLite journal and applies inverse patches via the YNAB API.

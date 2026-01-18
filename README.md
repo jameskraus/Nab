@@ -28,14 +28,14 @@ bunx @jameskraus/nab auth token add "<PAT2>"
 
 
 # Set default budget for this machine
-bunx @jameskraus/nab config set --budget-id 06443689-ec9d-45d9-a37a-53dc60014769
+bunx @jameskraus/nab budget set-default --id 06443689-ec9d-45d9-a37a-53dc60014769
 
 # Or use environment variables
 export NAB_TOKENS="<PAT1>,<PAT2>"
 export NAB_BUDGET_ID=06443689-ec9d-45d9-a37a-53dc60014769
 
-# Show config (redacts tokens)
-bunx @jameskraus/nab config show
+# Show effective budget id
+bunx @jameskraus/nab budget current
 ```
 
 ## OAuth (optional)

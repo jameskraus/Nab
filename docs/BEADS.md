@@ -24,7 +24,7 @@ Scope:
 
 Acceptance criteria:
 - running `bunx @jameskraus/nab --help` works
-- `bunx @jameskraus/nab config show --format json` prints valid JSON
+- `bunx @jameskraus/nab budget list --format json` prints valid JSON
 - usage errors return exit code 2
 
 Key files:
@@ -40,8 +40,8 @@ Scope:
 - resolve `--budget-id` override
 
 Acceptance criteria:
-- `bunx @jameskraus/nab config set --tokens ...`
-- `bunx @jameskraus/nab config set --budget-id ...`
+- `bunx @jameskraus/nab auth token add <PAT>`
+- `bunx @jameskraus/nab budget set-default --id <BUDGET_ID>`
 - any command can resolve effective tokens + budget id (or fail with actionable error)
 
 Key files:

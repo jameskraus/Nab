@@ -1,7 +1,7 @@
 export class MissingTokenError extends Error {
   constructor() {
     super(
-      "Missing auth. Use `nab auth oauth login` or set NAB_TOKENS via `nab config set --tokens <PAT[,PAT...]>` or the NAB_TOKENS environment variable. Create tokens at https://app.ynab.com/settings/developer.",
+      "Missing auth. Use `nab auth oauth login` or `nab auth token add <PAT>` (or set NAB_TOKENS). Create tokens at https://app.ynab.com/settings/developer.",
     );
     this.name = "MissingTokenError";
   }
@@ -10,7 +10,7 @@ export class MissingTokenError extends Error {
 export class MissingBudgetIdError extends Error {
   constructor() {
     super(
-      "Missing NAB_BUDGET_ID. Set it via `nab config set --budget-id <ID>`, the NAB_BUDGET_ID environment variable, or --budget-id.",
+      "Missing NAB_BUDGET_ID. Set it via `nab budget set-default --id <ID>`, the NAB_BUDGET_ID environment variable, or --budget-id.",
     );
     this.name = "MissingBudgetIdError";
   }

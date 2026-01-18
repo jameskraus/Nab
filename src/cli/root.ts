@@ -9,7 +9,6 @@ import { accountCommand } from "./commands/account";
 import { authCommand } from "./commands/auth";
 import { budgetCommand } from "./commands/budget";
 import { categoryCommand } from "./commands/category";
-import { configCommand } from "./commands/config";
 import { historyCommand } from "./commands/history";
 import { payeeCommand } from "./commands/payee";
 import { txCommand } from "./commands/tx";
@@ -96,7 +95,7 @@ export function createCli(argv: string[], options: CliOptions) {
       const subcommand = String(argv._[1] ?? "");
       if (!command) return;
       if (command === "auth") return;
-      if (command === "config") return;
+      if (command === "budget" && subcommand === "set-default") return;
       if (command === "history") {
         const isHistoryRevert = subcommand === "revert";
         (argv as { appContext?: unknown }).appContext = await createAppContext({
@@ -160,7 +159,6 @@ export function createCli(argv: string[], options: CliOptions) {
     .command(categoryCommand)
     .command(payeeCommand)
     .command(authCommand)
-    .command(configCommand)
     .command(txCommand)
     .command(historyCommand)
     .demandCommand(1, "Specify a command")

@@ -3,7 +3,9 @@ import type { BudgetSummary, CurrencyFormat } from "ynab";
 
 import type { AppContext } from "@/app/createAppContext";
 import { MissingBudgetIdError } from "@/app/errors";
+import { requireApplyConfirmation } from "@/cli/mutations";
 import type { CliGlobalArgs } from "@/cli/types";
+import { ConfigStore } from "@/config/ConfigStore";
 import {
   cacheBudgetCurrencyFormats,
   resolveBudgetCurrencyFormat,
@@ -41,6 +43,12 @@ type BudgetCurrencyPayload = {
   budgetId: string;
   currency_format: CurrencyFormat;
 };
+
+function normalize(value?: string | null): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  return trimmed.length ? trimmed : undefined;
+}
 
 function budgetRows(budgets: BudgetSummary[]): BudgetListRow[] {
   return budgets.map((budget) => ({
@@ -192,6 +200,38 @@ export const budgetCommand: CommandModule<CliGlobalArgs> = {
             throw new MissingBudgetIdError();
           }
           writeBudgetCurrent(ctx.budgetId, format);
+        },
+      })
+      .command({
+        command: "set-default",
+        describe: "Persist the default budget id locally",
+        builder: (yy) =>
+          yy.option("id", {
+            type: "string",
+            describe: "Budget id to store as the default",
+          }),
+        handler: async (argv) => {
+          const args = argv as unknown as CliArgs & {
+            id?: string;
+            "budget-id"?: string;
+            budgetId?: string;
+            "dry-run"?: boolean;
+            yes?: boolean;
+          };
+          const budgetId =
+            normalize(args.id) ?? normalize(args["budget-id"]) ?? normalize(args.budgetId);
+          if (!budgetId) {
+            throw new Error("Provide --id (or --budget-id) to set the default budget id.");
+          }
+
+          requireApplyConfirmation(Boolean(args["dry-run"]), Boolean(args.yes));
+
+          if (!args["dry-run"]) {
+            const store = new ConfigStore();
+            await store.save({ budgetId });
+          }
+
+          writeBudgetCurrent(budgetId, args.format);
         },
       })
       .command({

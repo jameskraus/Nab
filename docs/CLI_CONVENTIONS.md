@@ -23,8 +23,8 @@ Supported formats:
 - `ids` (just ids, newline-delimited)
 
 Examples:
-- `bunx @jameskraus/nab config show --format json`
-- `bunx @jameskraus/nab config show --format tsv`
+- `bunx @jameskraus/nab budget list --format json`
+- `bunx @jameskraus/nab budget list --format tsv`
 
 ## Dates & locale
 
@@ -36,7 +36,7 @@ Examples:
 Precedence (highest to lowest):
 1. CLI flags (`--auth`, `--budget-id`)
 2. Environment variables (`NAB_AUTH_METHOD`, `NAB_TOKENS`, `NAB_BUDGET_ID`, `NAB_CONFIG_DIR`, `NAB_OAUTH_CLIENT_ID`, `NAB_OAUTH_CLIENT_SECRET`, `NAB_OAUTH_SCOPE`)
-3. Config file (`bunx @jameskraus/nab config set`)
+3. Config file (written by `nab auth` commands and `bunx @jameskraus/nab budget set-default`)
 
 ## Read-only commands
 
@@ -44,6 +44,7 @@ Read-only commands never mutate YNAB data and are safe for agents.
 
 Budgets:
 - `bunx @jameskraus/nab budget list [--format table|json|tsv|ids]`
+- `bunx @jameskraus/nab budget set-default --id <budget-id>` (local-only)
 
 Accounts:
 - `bunx @jameskraus/nab account list [--format ...]` (requires budget id)

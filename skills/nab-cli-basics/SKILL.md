@@ -28,12 +28,9 @@ Use this guide to explain the minimal setup (auth token + budget id) and common 
 
 ## Set budget id (required for most commands)
 - Run `bunx @jameskraus/nab budget list --format json` and copy the `id` field.
-- Store a default budget id with `bunx @jameskraus/nab config set --budget-id <BUDGET_ID>`.
+- Store a default budget id with `bunx @jameskraus/nab budget set-default --id <BUDGET_ID>`.
 - Override per command with `--budget-id <BUDGET_ID>`.
-
-## Useful config helpers
-- Run `bunx @jameskraus/nab config show` to view config (tokens are redacted).
-- Run `bunx @jameskraus/nab config path` or `bunx @jameskraus/nab config dir` to locate config files.
+- Show the effective budget id with `bunx @jameskraus/nab budget current`.
 
 ## Notes
 - Use date-only strings (`YYYY-MM-DD`).
