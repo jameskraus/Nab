@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { beforeAll, expect, test } from "bun:test";
 import type {
   Account,
   CategoryGroupWithCategories,
@@ -10,6 +10,7 @@ import type {
 import { YnabClient } from "@/api/YnabClient";
 import { TransactionService } from "@/domain/TransactionService";
 
+import { cleanupTestTransactions } from "../helpers/testCleanup";
 import { loadTestEnv } from "../helpers/testEnv";
 
 const REQUIRED_BUDGET_ID = "06443689-ec9d-45d9-a37a-53dc60014769";
@@ -97,6 +98,10 @@ if (!token || !budgetId) {
   });
 } else {
   const client = new YnabClient(tokens);
+
+  beforeAll(async () => {
+    await cleanupTestTransactions(client, budgetId);
+  });
 
   test("integration: list budgets includes test budget", async () => {
     const budgets = await client.listBudgets();

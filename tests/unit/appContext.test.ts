@@ -51,7 +51,7 @@ test("createAppContext: flags > env > config precedence", async () => {
   const ctx = await createAppContext({
     configStore: store,
     env: { NAB_TOKENS: "env-token-1,env-token-2", NAB_BUDGET_ID: "env-budget" },
-    argv: { "budget-id": "flag-budget" },
+    argv: { budgetId: "flag-budget" },
     createDb: false,
     logger,
   });

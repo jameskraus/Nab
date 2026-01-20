@@ -12,6 +12,8 @@ export interface OutputWriter<T = unknown> {
 export type OutputWriterOptions = {
   stdout?: NodeJS.WritableStream;
   stderr?: NodeJS.WritableStream;
+  quiet?: boolean;
+  noColor?: boolean;
 };
 
 export type OutputWriterFactory = (options?: OutputWriterOptions) => OutputWriter;

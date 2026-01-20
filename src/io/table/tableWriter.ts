@@ -8,13 +8,22 @@ export type TableSpec<T> = {
 
 const COLUMN_GAP = "  ";
 
-function normalizeCell(value: unknown): string {
+const ANSI_PATTERN =
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: ANSI escapes use control characters.
+  /[\u001b\u009b][[\]()#;?]*(?:\d{1,4}(?:;\d{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
+
+function stripAnsi(value: string): string {
+  return value.replace(ANSI_PATTERN, "");
+}
+
+function normalizeCell(value: unknown, stripColors: boolean): string {
   if (value === null || value === undefined) return "";
   const raw =
     typeof value === "string" || typeof value === "number" || typeof value === "boolean"
       ? String(value)
       : JSON.stringify(value);
-  return raw.replaceAll("\t", " ").replaceAll("\n", " ");
+  const normalized = raw.replaceAll("\t", " ").replaceAll("\n", " ");
+  return stripColors ? stripAnsi(normalized) : normalized;
 }
 
 function pad(value: string, width: number, align: ColumnAlign = "left"): string {
@@ -24,9 +33,11 @@ function pad(value: string, width: number, align: ColumnAlign = "left"): string 
 export class TableWriter<T = unknown> implements OutputWriter<TableSpec<T>> {
   public readonly format = "table" as const;
   private readonly stdout: NodeJS.WritableStream;
+  private readonly stripColors: boolean;
 
   constructor(options: OutputWriterOptions = {}) {
     this.stdout = options.stdout ?? process.stdout;
+    this.stripColors = Boolean(options.noColor);
   }
 
   write(spec: TableSpec<T>): void {
@@ -42,9 +53,10 @@ export class TableWriter<T = unknown> implements OutputWriter<TableSpec<T>> {
     const formattedRows = rows.map((row) =>
       columns.map((col, index) => {
         const raw = col.getValue(row);
-        const formatted = col.format ? col.format(raw, row) : normalizeCell(raw);
-        widths[index] = Math.max(widths[index], formatted.length);
-        return formatted;
+        const formatted = col.format ? col.format(raw, row) : normalizeCell(raw, this.stripColors);
+        const safe = this.stripColors ? stripAnsi(formatted) : formatted;
+        widths[index] = Math.max(widths[index], safe.length);
+        return safe;
       }),
     );
 
@@ -53,7 +65,10 @@ export class TableWriter<T = unknown> implements OutputWriter<TableSpec<T>> {
       .join(COLUMN_GAP);
     const divider = columns.map((_, index) => "-".repeat(widths[index])).join(COLUMN_GAP);
 
-    const lines = [header, divider];
+    const lines = [
+      this.stripColors ? stripAnsi(header) : header,
+      this.stripColors ? stripAnsi(divider) : divider,
+    ];
     for (const row of formattedRows) {
       const line = row
         .map((cell, index) => pad(cell, widths[index], columns[index].align))

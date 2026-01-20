@@ -22,6 +22,10 @@ Supported formats:
 - `tsv` (scripting)
 - `ids` (just ids, newline-delimited)
 
+Output flags:
+- `--quiet` suppresses non-essential stderr output (warnings, guidance).
+- `--no-color` strips ANSI color codes from output (plain table output).
+
 Examples:
 - `bunx @jameskraus/nab budget list --format json`
 - `bunx @jameskraus/nab budget list --format tsv`
@@ -34,9 +38,12 @@ Examples:
 ## Config resolution
 
 Precedence (highest to lowest):
-1. CLI flags (`--auth`, `--budget-id`)
+1. CLI flags (`--auth`, `--budget-id`) when the command exposes them
 2. Environment variables (`NAB_AUTH_METHOD`, `NAB_TOKENS`, `NAB_BUDGET_ID`, `NAB_CONFIG_DIR`, `NAB_OAUTH_CLIENT_ID`, `NAB_OAUTH_CLIENT_SECRET`, `NAB_OAUTH_SCOPE`)
 3. Config file (written by `nab auth` commands and `bunx @jameskraus/nab budget set-default`)
+
+Notes:
+- `--auth` and `--budget-id` are not global; only commands that require or consume them expose the flags.
 
 ## Read-only commands
 
@@ -44,6 +51,7 @@ Read-only commands never mutate YNAB data and are safe for agents.
 
 Budgets:
 - `bunx @jameskraus/nab budget list [--format table|json|tsv|ids]`
+- `bunx @jameskraus/nab budget current [--format table|json|tsv|ids]`
 - `bunx @jameskraus/nab budget set-default --id <budget-id>` (local-only)
 
 Accounts:
@@ -58,6 +66,7 @@ Payees:
 Transactions:
 - `bunx @jameskraus/nab tx list [--since-date YYYY-MM-DD] [--account-id <id>] [--only-uncategorized] [--only-unapproved] [--only-transfers] [--exclude-transfers] [--format ...]`
 - `bunx @jameskraus/nab tx get --id <transaction-id> [--format ...]`
+- `bunx @jameskraus/nab tx memo get --id <transaction-id> [--format ...]`
 - `bunx @jameskraus/nab tx create --account-id <id> --date YYYY-MM-DD --amount <amount> [--payee-id ...] [--category-id ...] [--memo ...] [--cleared ...] [--approved true|false] [--flag-color ...] [--format ...] [--dry-run] [--yes]`
 
 Notes:
@@ -68,7 +77,7 @@ Notes:
 
 History (local-only):
 - `bunx @jameskraus/nab history list [--limit <n>] [--since <ISO 8601>] [--format ...]`
-- `bunx @jameskraus/nab history show <id-or-index> [--format ...]`
+- `bunx @jameskraus/nab history show <idOrIndex> [--format ...]`
 
 Examples:
 - `bunx @jameskraus/nab budget list --format tsv`

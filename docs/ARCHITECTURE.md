@@ -18,13 +18,13 @@ Responsibilities:
 - validate flags (shape, mutual exclusivity)
 - print results (via IO/formatting layer)
 - map errors to exit codes
-- attach global middleware (builds `appContext` for most commands)
+- declare per-command requirements (auth/budget/db/mutation/output) via `defineCommand`
 
 Notes (current behavior):
 - Read-only commands call the YNAB API directly via `ctx.ynab.*` (e.g., `budget list`, `account/category/payee list`, `tx list/get`).
 - `tx list` uses the account-scoped endpoint when `--account-id` is provided and forwards server-side type filters (`uncategorized` / `unapproved`).
 - Mutating commands use the domain service layer for transaction operations.
-- `auth` commands and `budget set-default` bypass the global middleware and talk to config/auth helpers directly.
+- Commands without context requirements (e.g. `auth`, `budget set-default`) run without `appContext`.
 - CLI handlers do not execute SQL directly; they call journal helpers in `src/journal/**`.
 
 ### 2) App context / composition root (`src/app/createAppContext.ts`)
@@ -88,20 +88,22 @@ Responsibilities:
 - currency formatting based on the budget's `currency_format`
 - machine-friendly JSON for agents
 
-## Global middleware behavior (what gets `appContext`)
+## Per-command context requirements (`defineCommand`)
 
-Global middleware lives in `src/cli/root.ts` and attaches `appContext` for most commands.
+Commands declare their needs in `src/cli/command.ts` and `src/cli/options.ts`:
+- `auth`: no `appContext` (config-only).
+- `budget set-default`: no `appContext` (local config only).
+- `history list/show`: `{ db: true }`.
+- `history revert`: `{ auth: true, budget: "required", db: true, mutation: true }`.
+- `budget list`: `{ auth: true }`.
+- `budget current`: `{ budget: "required" }` (no token required).
+- Read-only lists/gets (`account|category|payee list`, `tx list|get`, `tx memo get`):
+  `{ auth: true, budget: "required" }`.
+- Mutations (`tx *` except list/get/memo get): `{ auth: true, budget: "required", db: true, mutation: true }`.
 
-Rules (current):
-- `auth`: no middleware (handlers run without `appContext`).
-- `budget set-default`: no middleware (local config only).
-- `history list/show`: `{ requireToken: false, requireBudgetId: false, createDb: true }`.
-- `history revert`: `{ requireToken: true, requireBudgetId: true, createDb: true }`.
-- `budget list`: `{ requireToken: true, requireBudgetId: false, createDb: false }`.
-- `budget current`: `{ requireToken: false, requireBudgetId: false, createDb: false }`.
-- Read-only lists/gets (`account|category|payee list`, `tx list|get`):
-  `{ requireToken: true, requireBudgetId: true, createDb: false }`.
-- All other commands: `{ requireToken: true, requireBudgetId: true, createDb: true }`.
+Mutation requirement meaning:
+- `mutation: true` is reserved for commands that **write to YNAB**.
+- Local config writes (auth config, `budget set-default`, `budget currency set`) are not treated as mutations.
 
 Why this matters:
 - `requireToken` triggers OAuth auto-refresh; commands with it set to `false` will not refresh.
@@ -110,10 +112,10 @@ Why this matters:
 ## Request flow patterns (current)
 
 ### Read-only YNAB commands
-`yargs` → middleware → `createAppContext` → CLI handler → `ctx.ynab.*` → output
+`yargs` → `defineCommand` → `createAppContext` → CLI handler → `ctx.ynab.*` → output
 
 ### Mutation commands
-`yargs` → middleware → `createAppContext` (with DB) → CLI handler → `TransactionService` → YNAB client → journal → output
+`yargs` → `defineCommand` → `createAppContext` (with DB) → CLI handler → `TransactionService` → YNAB client → journal → output
 
 ### Auth commands
 `yargs` → handler → config/auth helpers (no `appContext`)
@@ -160,9 +162,10 @@ Why this matters:
 
 ## Where to start reading (fast mental model)
 
-1) `src/cli/root.ts` (global middleware and command classification)
-2) `src/app/createAppContext.ts` (auth/budget resolution + OAuth refresh)
-3) `src/cli/commands/**` (handlers)
+1) `src/cli/root.ts` (CLI setup + logging middleware)
+2) `src/cli/command.ts` + `src/cli/options.ts` (requirements + shared options)
+3) `src/app/createAppContext.ts` (auth/budget resolution + OAuth refresh)
+4) `src/cli/commands/**` (handlers)
 4) `src/api/YnabClient.ts` + `src/api/SingleTokenYnabClient.ts` (API behavior)
 5) `src/domain/TransactionService.ts` + `src/journal/**` (mutations + journal)
 

@@ -1,6 +1,5 @@
 import yargs from "yargs/yargs";
 
-import { createAppContext } from "@/app/createAppContext";
 import { formatError } from "@/util/errors";
 import { exitCodeForError } from "@/util/exitCodes";
 import type { Logger } from "pino";
@@ -12,7 +11,6 @@ import { categoryCommand } from "./commands/category";
 import { historyCommand } from "./commands/history";
 import { payeeCommand } from "./commands/payee";
 import { txCommand } from "./commands/tx";
-import type { CliGlobalArgs } from "./types";
 
 type CliOptions = {
   logger: Logger;
@@ -21,7 +19,7 @@ type CliOptions = {
 export function createCli(argv: string[], options: CliOptions) {
   const baseLogger = options.logger;
 
-  const cli = (yargs(argv) as Argv<CliGlobalArgs>)
+  const cli = (yargs(argv) as Argv)
     .scriptName("nab")
     .usage("$0 <command> [options]")
     .help()
@@ -29,110 +27,27 @@ export function createCli(argv: string[], options: CliOptions) {
     .version("0.1.0")
     .alias("v", "version")
     .strict()
+    .parserConfiguration({ "camel-case-expansion": true, "strip-dashed": true })
     .recommendCommands()
     .wrap(Math.min(120, cliTerminalWidth()))
-    .option("auth", {
-      type: "string",
-      choices: ["pat", "oauth"] as const,
-      describe: "Preferred auth method",
-    })
-    .option("budget-id", {
-      type: "string",
-      describe: "Default budget id to operate on (overrides config)",
-    })
-    .option("format", {
-      type: "string",
-      describe: "Output format",
-      choices: ["table", "json", "tsv", "ids"] as const,
-      default: "table",
-    })
-    .option("quiet", {
-      type: "boolean",
-      default: false,
-      describe: "Suppress non-essential output",
-    })
-    .option("no-color", {
-      type: "boolean",
-      default: false,
-      describe: "Disable ANSI colors",
-    })
-    .option("dry-run", {
-      type: "boolean",
-      default: false,
-      describe: "Preview changes without applying mutations",
-    })
-    .option("yes", {
-      type: "boolean",
-      default: false,
-      describe: "Skip interactive confirmation prompts",
-    })
-    .group(
-      ["auth", "budget-id", "format", "quiet", "no-color", "dry-run", "yes", "help", "version"],
-      "Global Options",
-    )
-    .check((argv) => {
-      if (typeof argv["budget-id"] === "string" && argv["budget-id"].trim().length === 0) {
-        throw new Error("Provide a non-empty --budget-id value.");
-      }
-      return true;
-    })
     .middleware((argv) => {
       const command = String(argv._[0] ?? "");
       if (!command) return;
       const subcommand = String(argv._[1] ?? "");
+      const args = argv as {
+        format?: string;
+        dryRun?: boolean;
+        yes?: boolean;
+      };
       const cmdLogger = baseLogger.child({
         command,
         subcommand,
-        format: argv.format,
-        dryRun: argv["dry-run"],
-        yes: argv.yes,
+        format: args.format,
+        dryRun: args.dryRun,
+        yes: args.yes,
       });
       (argv as { logger?: Logger }).logger = cmdLogger;
       cmdLogger.info({ event: "command_start" });
-    })
-    .middleware(async (argv) => {
-      const command = String(argv._[0] ?? "");
-      const subcommand = String(argv._[1] ?? "");
-      if (!command) return;
-      if (command === "auth") return;
-      if (command === "budget" && subcommand === "set-default") return;
-      if (command === "history") {
-        const isHistoryRevert = subcommand === "revert";
-        (argv as { appContext?: unknown }).appContext = await createAppContext({
-          argv: argv as { auth?: string; "budget-id"?: string; budgetId?: string },
-          requireToken: isHistoryRevert,
-          requireBudgetId: isHistoryRevert,
-          createDb: true,
-          logger: (argv as { logger?: Logger }).logger ?? baseLogger,
-        });
-        return;
-      }
-      const isBudgetList = command === "budget" && subcommand === "list";
-      const isBudgetCurrent = command === "budget" && subcommand === "current";
-      const isBudgetCurrency = command === "budget" && subcommand === "currency";
-      const isReadOnlyList =
-        (command === "account" || command === "category" || command === "payee") &&
-        subcommand === "list";
-      const isTxReadOnly = command === "tx" && (subcommand === "list" || subcommand === "get");
-
-      const requireToken = !isBudgetCurrent;
-      const requireBudgetId = !(isBudgetList || isBudgetCurrent);
-      const createDb = !(
-        isBudgetList ||
-        isBudgetCurrent ||
-        isBudgetCurrency ||
-        isReadOnlyList ||
-        isTxReadOnly
-      );
-
-      // Attach for future handlers; throws on missing auth context.
-      (argv as { appContext?: unknown }).appContext = await createAppContext({
-        argv: argv as { auth?: string; "budget-id"?: string; budgetId?: string },
-        requireToken,
-        requireBudgetId,
-        createDb,
-        logger: (argv as { logger?: Logger }).logger ?? baseLogger,
-      });
     })
     .fail((msg, err, y) => {
       if (!err && msg === "Specify a command") {

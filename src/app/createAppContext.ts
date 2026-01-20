@@ -29,7 +29,6 @@ export type AppContext = {
 export type AppContextOptions = {
   argv?: {
     auth?: string;
-    "budget-id"?: string;
     budgetId?: string;
   };
   env?: NodeJS.ProcessEnv;
@@ -86,9 +85,7 @@ export async function createAppContext(options: AppContextOptions): Promise<AppC
   const envTokens = parseTokens(env.NAB_TOKENS);
   const configTokens = config.tokens;
   const budgetId =
-    normalize(options.argv?.["budget-id"] ?? options.argv?.budgetId) ??
-    normalize(env.NAB_BUDGET_ID) ??
-    config.budgetId;
+    normalize(options.argv?.budgetId) ?? normalize(env.NAB_BUDGET_ID) ?? config.budgetId;
 
   const requireToken = options.requireToken ?? true;
   const requireBudgetId = options.requireBudgetId ?? true;

@@ -1,9 +1,9 @@
-import type { CommandModule } from "yargs";
+import type { Argv } from "yargs";
 
-import type { AppContext } from "@/app/createAppContext";
+import { defineCommand } from "@/cli/command";
 import { requireApplyConfirmation } from "@/cli/mutations";
-import type { CliGlobalArgs } from "@/cli/types";
-import { createOutputWriter, fieldColumn, parseOutputFormat } from "@/io";
+import { getOutputWriterOptions } from "@/cli/outputOptions";
+import { type OutputWriterOptions, createOutputWriter, fieldColumn, parseOutputFormat } from "@/io";
 import { normalizeArgv } from "@/journal/argv";
 import {
   type HistoryAction,
@@ -14,134 +14,120 @@ import {
 } from "@/journal/history";
 import { type RevertResult, revertHistoryAction } from "@/journal/revert";
 
-export const historyCommand: CommandModule<CliGlobalArgs> = {
+export const historyCommand = {
   command: "history <command>",
   describe: "Inspect local nab history (journal)",
-  builder: (y) =>
+  builder: (y: Argv<Record<string, unknown>>) =>
     y
-      .command({
-        command: "list",
-        describe: "List recent actions recorded locally",
-        builder: (yy) =>
-          yy
-            .option("limit", {
-              type: "number",
-              default: 20,
-              describe: "Maximum number of history actions to show",
-            })
-            .option("since", {
+      .command(
+        defineCommand({
+          command: "list",
+          describe: "List recent actions recorded locally",
+          requirements: { db: true },
+          builder: (yy) =>
+            yy
+              .option("limit", {
+                type: "number",
+                default: 20,
+                describe: "Maximum number of history actions to show",
+              })
+              .option("since", {
+                type: "string",
+                describe: "Only include actions on/after this timestamp (ISO 8601)",
+              }),
+          handler: (argv, ctx) => {
+            const args = argv as { limit?: number; since?: string; format?: string };
+            const actions = listHistoryActions(ctx.db, { limit: args.limit, since: args.since });
+            writeHistoryList(actions, args.format, getOutputWriterOptions(argv));
+          },
+        }),
+      )
+      .command(
+        defineCommand({
+          command: "show <idOrIndex>",
+          describe: "Show a recorded action by id or index",
+          requirements: { db: true },
+          builder: (yy) =>
+            yy.positional("idOrIndex", {
               type: "string",
-              describe: "Only include actions on/after this timestamp (ISO 8601)",
+              describe: "History id or zero-based index (0 is most recent)",
             }),
-        handler: (argv) => {
-          const { appContext, format, limit, since } = argv as unknown as CliGlobalArgs & {
-            appContext?: AppContext;
-            limit?: number;
-            since?: string;
-          };
-          const ctx = appContext;
-          if (!ctx?.db) {
-            throw new Error("History database is not available.");
-          }
-
-          const actions = listHistoryActions(ctx.db, { limit, since });
-          writeHistoryList(actions, format);
-        },
-      })
-      .command({
-        command: "show <idOrIndex>",
-        describe: "Show a recorded action by id or index",
-        builder: (yy) =>
-          yy.positional("idOrIndex", {
-            type: "string",
-            describe: "History id or zero-based index (0 is most recent)",
-          }),
-        handler: (argv) => {
-          const { appContext, format, idOrIndex } = argv as unknown as CliGlobalArgs & {
-            appContext?: AppContext;
-            idOrIndex: string;
-          };
-          const ctx = appContext;
-          if (!ctx?.db) {
-            throw new Error("History database is not available.");
-          }
-
-          const selector = parseHistorySelector(idOrIndex);
-          const action =
-            selector.type === "index"
-              ? getHistoryActionByIndex(ctx.db, selector.index)
-              : getHistoryAction(ctx.db, selector.id);
-          if (!action) {
-            if (selector.type === "index") {
-              throw new Error(`History index out of range: ${selector.index}`);
+          handler: (argv, ctx) => {
+            const args = argv as unknown as { idOrIndex: string; format?: string };
+            const selector = parseHistorySelector(args.idOrIndex);
+            const action =
+              selector.type === "index"
+                ? getHistoryActionByIndex(ctx.db, selector.index)
+                : getHistoryAction(ctx.db, selector.id);
+            if (!action) {
+              if (selector.type === "index") {
+                throw new Error(`History index out of range: ${selector.index}`);
+              }
+              throw new Error(`History action not found: ${selector.id}`);
             }
-            throw new Error(`History action not found: ${selector.id}`);
-          }
 
-          writeHistoryDetail(action, format);
-        },
-      })
-      .command({
-        command: "revert",
-        describe: "Revert a recorded action",
-        builder: (yy) =>
-          yy.option("id", {
-            type: "string",
-            demandOption: true,
-            describe: "History id to revert",
-          }),
-        handler: async (argv) => {
-          const { appContext, format, dryRun, yes, id } = argv as unknown as CliGlobalArgs & {
-            appContext?: AppContext;
-            id: string;
-          };
+            writeHistoryDetail(action, args.format, getOutputWriterOptions(argv));
+          },
+        }),
+      )
+      .command(
+        defineCommand({
+          command: "revert",
+          describe: "Revert a recorded action",
+          requirements: { db: true, auth: true, budget: "required", mutation: true },
+          builder: (yy) =>
+            yy.option("id", {
+              type: "string",
+              demandOption: true,
+              describe: "History id to revert",
+            }),
+          handler: async (argv, ctx) => {
+            const args = argv as unknown as {
+              id: string;
+              format?: string;
+              dryRun?: boolean;
+              yes?: boolean;
+            };
+            const dryRun = Boolean(args.dryRun);
+            requireApplyConfirmation(dryRun, Boolean(args.yes));
 
-          const ctx = appContext;
-          if (!ctx?.db) {
-            throw new Error("History database is not available.");
-          }
-          if (!ctx.ynab || !ctx.budgetId) {
-            throw new Error("Missing budget context for history revert.");
-          }
+            const action = getHistoryAction(ctx.db, args.id);
+            if (!action) {
+              throw new Error(`History action not found: ${args.id}`);
+            }
 
-          requireApplyConfirmation(Boolean(dryRun), Boolean(yes));
+            const outcome = await revertHistoryAction({
+              ynab: ctx.ynab,
+              budgetId: ctx.budgetId,
+              history: action,
+              dryRun,
+            });
 
-          const action = getHistoryAction(ctx.db, id);
-          if (!action) {
-            throw new Error(`History action not found: ${id}`);
-          }
+            const appliedIds = outcome.appliedPatches.map((entry) => entry.id);
+            if (!dryRun && appliedIds.length > 0) {
+              recordHistoryAction(
+                ctx.db,
+                "history.revert",
+                {
+                  argv: normalizeArgv(argv as Record<string, unknown>),
+                  txIds: appliedIds,
+                  patches: outcome.appliedPatches,
+                  revertOf: action.id,
+                  sourceActionType: action.actionType,
+                  restored: outcome.restored,
+                },
+                outcome.inversePatches.length > 0 ? outcome.inversePatches : undefined,
+              );
+            }
 
-          const outcome = await revertHistoryAction({
-            ynab: ctx.ynab,
-            budgetId: ctx.budgetId,
-            history: action,
-            dryRun: Boolean(dryRun),
-          });
-
-          const appliedIds = outcome.appliedPatches.map((entry) => entry.id);
-          if (!dryRun && appliedIds.length > 0) {
-            recordHistoryAction(
-              ctx.db,
-              "history.revert",
-              {
-                argv: normalizeArgv(argv as Record<string, unknown>),
-                txIds: appliedIds,
-                patches: outcome.appliedPatches,
-                revertOf: action.id,
-                sourceActionType: action.actionType,
-                restored: outcome.restored,
-              },
-              outcome.inversePatches.length > 0 ? outcome.inversePatches : undefined,
-            );
-          }
-
-          writeRevertResults(outcome.results, format);
-        },
-      })
+            writeRevertResults(outcome.results, args.format, getOutputWriterOptions(argv));
+          },
+        }),
+      )
       .demandCommand(1, "Specify a history subcommand")
       .strict(),
   handler: () => {},
-};
+} as const;
 
 type HistoryRow = {
   id: string;
@@ -180,27 +166,31 @@ function historyRows(actions: HistoryAction[]): HistoryRow[] {
   }));
 }
 
-function writeHistoryList(actions: HistoryAction[], rawFormat?: string): void {
+function writeHistoryList(
+  actions: HistoryAction[],
+  rawFormat?: string,
+  options?: OutputWriterOptions,
+): void {
   const format = parseOutputFormat(rawFormat, "table");
 
   if (format === "json") {
-    createOutputWriter("json").write(actions);
+    createOutputWriter("json", options).write(actions);
     return;
   }
 
   if (format === "ids") {
-    createOutputWriter("ids").write(actions.map((action) => action.id));
+    createOutputWriter("ids", options).write(actions.map((action) => action.id));
     return;
   }
 
   const rows = historyRows(actions);
 
   if (format === "tsv") {
-    createOutputWriter("tsv").write(rows);
+    createOutputWriter("tsv", options).write(rows);
     return;
   }
 
-  createOutputWriter("table").write({
+  createOutputWriter("table", options).write({
     columns: [
       fieldColumn("createdAt", { header: "Created" }),
       fieldColumn("actionType", { header: "Action" }),
@@ -211,27 +201,31 @@ function writeHistoryList(actions: HistoryAction[], rawFormat?: string): void {
   });
 }
 
-function writeHistoryDetail(action: HistoryAction, rawFormat?: string): void {
+function writeHistoryDetail(
+  action: HistoryAction,
+  rawFormat?: string,
+  options?: OutputWriterOptions,
+): void {
   const format = parseOutputFormat(rawFormat, "table");
 
   if (format === "json") {
-    createOutputWriter("json").write(action);
+    createOutputWriter("json", options).write(action);
     return;
   }
 
   if (format === "ids") {
-    createOutputWriter("ids").write([action.id]);
+    createOutputWriter("ids", options).write([action.id]);
     return;
   }
 
   const rows = historyRows([action]);
 
   if (format === "tsv") {
-    createOutputWriter("tsv").write(rows);
+    createOutputWriter("tsv", options).write(rows);
     return;
   }
 
-  createOutputWriter("table").write({
+  createOutputWriter("table", options).write({
     columns: [
       fieldColumn("createdAt", { header: "Created" }),
       fieldColumn("actionType", { header: "Action" }),
@@ -242,17 +236,21 @@ function writeHistoryDetail(action: HistoryAction, rawFormat?: string): void {
   });
 }
 
-function writeRevertResults(results: RevertResult[], rawFormat?: string): void {
+function writeRevertResults(
+  results: RevertResult[],
+  rawFormat?: string,
+  options?: OutputWriterOptions,
+): void {
   const format = parseOutputFormat(rawFormat, "table");
 
   if (format === "json") {
-    createOutputWriter("json").write(results);
+    createOutputWriter("json", options).write(results);
     return;
   }
 
   if (format === "ids") {
     const ids = results.map((result) => result.restoredId ?? result.id);
-    createOutputWriter("ids").write(ids);
+    createOutputWriter("ids", options).write(ids);
     return;
   }
 
@@ -264,11 +262,11 @@ function writeRevertResults(results: RevertResult[], rawFormat?: string): void {
   }));
 
   if (format === "tsv") {
-    createOutputWriter("tsv").write(rows);
+    createOutputWriter("tsv", options).write(rows);
     return;
   }
 
-  createOutputWriter("table").write({
+  createOutputWriter("table", options).write({
     columns: [
       fieldColumn("status", { header: "Status" }),
       fieldColumn("patch", { header: "Patch" }),

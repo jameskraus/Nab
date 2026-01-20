@@ -1,8 +1,8 @@
-import type { CommandModule } from "yargs";
+import type { Argv } from "yargs";
 import type { Account, CurrencyFormat } from "ynab";
 
-import type { AppContext } from "@/app/createAppContext";
-import type { CliGlobalArgs } from "@/cli/types";
+import { defineCommand } from "@/cli/command";
+import { getOutputWriterOptions } from "@/cli/outputOptions";
 import { resolveBudgetCurrencyFormat } from "@/domain/budgetCurrency";
 import {
   type OutputWriterOptions,
@@ -20,8 +20,6 @@ type AccountListRow = {
   closed: boolean;
   balance: string;
 };
-
-type CliArgs = CliGlobalArgs & { appContext?: AppContext };
 
 type AccountOutput = Omit<
   Account,
@@ -138,26 +136,27 @@ export function writeAccountList(
   });
 }
 
-export const accountCommand: CommandModule<CliGlobalArgs> = {
+export const accountCommand = {
   command: "account <command>",
   describe: "Accounts",
-  builder: (y) =>
+  builder: (y: Argv<Record<string, unknown>>) =>
     y
-      .command({
-        command: "list",
-        describe: "List accounts for the effective budget",
-        handler: async (argv) => {
-          const { appContext, format } = argv as unknown as CliArgs;
-          const ctx = appContext;
-          if (!ctx?.ynab || !ctx.budgetId) {
-            throw new Error("Missing budget context for account list.");
-          }
-          const accounts = await ctx.ynab.listAccounts(ctx.budgetId);
-          const currencyFormat = await resolveBudgetCurrencyFormat(ctx, ctx.budgetId);
-          writeAccountList(accounts, format, { currencyFormat });
-        },
-      })
+      .command(
+        defineCommand({
+          command: "list",
+          describe: "List accounts for the effective budget",
+          requirements: { auth: true, budget: "required" },
+          handler: async (argv, ctx) => {
+            const accounts = await ctx.ynab.listAccounts(ctx.budgetId);
+            const currencyFormat = await resolveBudgetCurrencyFormat(ctx, ctx.budgetId);
+            writeAccountList(accounts, argv.format, {
+              currencyFormat,
+              ...getOutputWriterOptions(argv),
+            });
+          },
+        }),
+      )
       .demandCommand(1, "Specify an account subcommand")
       .strict(),
   handler: () => {},
-};
+} as const;

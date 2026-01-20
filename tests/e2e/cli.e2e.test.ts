@@ -2,8 +2,11 @@ import { mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { expect, test } from "bun:test";
+import { beforeAll, expect, test } from "bun:test";
 
+import { YnabClient } from "@/api/YnabClient";
+
+import { cleanupTestTransactions } from "../helpers/testCleanup";
 import { loadTestEnv } from "../helpers/testEnv";
 
 const REQUIRED_BUDGET_ID = "06443689-ec9d-45d9-a37a-53dc60014769";
@@ -192,6 +195,11 @@ if (!token || !budgetId) {
   });
 } else {
   const baseEnv = { ...process.env, NAB_TOKENS: tokens.join(","), NAB_BUDGET_ID: budgetId };
+  const client = new YnabClient(tokens);
+
+  beforeAll(async () => {
+    await cleanupTestTransactions(client, budgetId);
+  });
 
   test("e2e: budget list works without budget id", async () => {
     const { stdout, stderr, exitCode } = await runCli(["budget", "list", "--format", "json"], {

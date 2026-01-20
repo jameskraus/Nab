@@ -1,8 +1,8 @@
-import type { CommandModule } from "yargs";
+import type { Argv } from "yargs";
 import type { CategoryGroupWithCategories, CurrencyFormat } from "ynab";
 
-import type { AppContext } from "@/app/createAppContext";
-import type { CliGlobalArgs } from "@/cli/types";
+import { defineCommand } from "@/cli/command";
+import { getOutputWriterOptions } from "@/cli/outputOptions";
 import { resolveBudgetCurrencyFormat } from "@/domain/budgetCurrency";
 import {
   type OutputWriterOptions,
@@ -20,8 +20,6 @@ type CategoryListRow = {
   deleted: boolean;
   balance: string;
 };
-
-type CliArgs = CliGlobalArgs & { appContext?: AppContext };
 
 type CategoryListRowJson = CategoryListRow & {
   balance_display: string;
@@ -106,26 +104,27 @@ export function writeCategoryList(
   });
 }
 
-export const categoryCommand: CommandModule<CliGlobalArgs> = {
+export const categoryCommand = {
   command: "category <command>",
   describe: "Categories",
-  builder: (y) =>
+  builder: (y: Argv<Record<string, unknown>>) =>
     y
-      .command({
-        command: "list",
-        describe: "List categories for the effective budget",
-        handler: async (argv) => {
-          const { appContext, format } = argv as unknown as CliArgs;
-          const ctx = appContext;
-          if (!ctx?.ynab || !ctx.budgetId) {
-            throw new Error("Missing budget context for category list.");
-          }
-          const groups = await ctx.ynab.listCategories(ctx.budgetId);
-          const currencyFormat = await resolveBudgetCurrencyFormat(ctx, ctx.budgetId);
-          writeCategoryList(groups, format, { currencyFormat });
-        },
-      })
+      .command(
+        defineCommand({
+          command: "list",
+          describe: "List categories for the effective budget",
+          requirements: { auth: true, budget: "required" },
+          handler: async (argv, ctx) => {
+            const groups = await ctx.ynab.listCategories(ctx.budgetId);
+            const currencyFormat = await resolveBudgetCurrencyFormat(ctx, ctx.budgetId);
+            writeCategoryList(groups, argv.format, {
+              currencyFormat,
+              ...getOutputWriterOptions(argv),
+            });
+          },
+        }),
+      )
       .demandCommand(1, "Specify a category subcommand")
       .strict(),
   handler: () => {},
-};
+} as const;

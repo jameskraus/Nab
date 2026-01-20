@@ -43,14 +43,14 @@ Core lifecycle:
 
 YNAB request tracing (via `YnabClient`):
 - `ynab.request`: request lifecycle, includes `name`, `phase` (`start|success|error`), `durationMs`, `status`, plus structured `meta` and `summary` payloads.
-- `ynab.token`: token selection/cooldown/disable/skip events, includes a redacted token and reason.
+- `ynab.token`: token selection/cooldown/disable/skip events, includes the raw token and reason.
 
 ## Redaction and safety
 
 Logs are scrubbed to reduce accidental secret leakage:
 - argv is sanitized for token-like strings before logging.
 - pino redaction masks common secret paths such as `token`, `accessToken`, `refreshToken`, and `authorization`.
-- `YnabClient` emits token traces in a redacted form (`abcd…wxyz`).
+- `YnabClient` token traces may include raw tokens by design; treat log files as sensitive.
 
 ## Reading logs
 

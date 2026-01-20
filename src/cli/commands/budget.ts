@@ -1,10 +1,8 @@
-import type { CommandModule } from "yargs";
+import type { Argv } from "yargs";
 import type { BudgetSummary, CurrencyFormat } from "ynab";
 
-import type { AppContext } from "@/app/createAppContext";
-import { MissingBudgetIdError } from "@/app/errors";
-import { requireApplyConfirmation } from "@/cli/mutations";
-import type { CliGlobalArgs } from "@/cli/types";
+import { defineCommand } from "@/cli/command";
+import { getOutputWriterOptions } from "@/cli/outputOptions";
 import { ConfigStore } from "@/config/ConfigStore";
 import {
   cacheBudgetCurrencyFormats,
@@ -31,8 +29,6 @@ type BudgetListRow = {
 type BudgetCurrentRow = {
   id: string;
 };
-
-type CliArgs = CliGlobalArgs & { appContext?: AppContext };
 
 type CurrencyRow = {
   key: string;
@@ -171,197 +167,201 @@ export function writeBudgetCurrency(
   });
 }
 
-export const budgetCommand: CommandModule<CliGlobalArgs> = {
+export const budgetCommand = {
   command: "budget <command>",
   describe: "Budgets",
-  builder: (y) =>
+  builder: (y: Argv<Record<string, unknown>>) =>
     y
-      .command({
-        command: "list",
-        describe: "List budgets available to the token",
-        handler: async (argv) => {
-          const { appContext, format } = argv as unknown as CliArgs;
-          const ctx = appContext;
-          if (!ctx?.ynab) {
-            throw new Error("Missing YNAB client in app context.");
-          }
-          const budgets = await ctx.ynab.listBudgets();
-          await cacheBudgetCurrencyFormats(ctx, budgets);
-          writeBudgetList(budgets, format);
-        },
-      })
-      .command({
-        command: "current",
-        describe: "Show the effective budget (from --budget-id or config)",
-        handler: (argv) => {
-          const { appContext, format } = argv as unknown as CliArgs;
-          const ctx = appContext;
-          if (!ctx?.budgetId) {
-            throw new MissingBudgetIdError();
-          }
-          writeBudgetCurrent(ctx.budgetId, format);
-        },
-      })
-      .command({
-        command: "set-default",
-        describe: "Persist the default budget id locally",
-        builder: (yy) =>
-          yy.option("id", {
-            type: "string",
-            describe: "Budget id to store as the default",
-          }),
-        handler: async (argv) => {
-          const args = argv as unknown as CliArgs & {
-            id?: string;
-            "budget-id"?: string;
-            budgetId?: string;
-            "dry-run"?: boolean;
-            yes?: boolean;
-          };
-          const budgetId =
-            normalize(args.id) ?? normalize(args["budget-id"]) ?? normalize(args.budgetId);
-          if (!budgetId) {
-            throw new Error("Provide --id (or --budget-id) to set the default budget id.");
-          }
-
-          requireApplyConfirmation(Boolean(args["dry-run"]), Boolean(args.yes));
-
-          if (!args["dry-run"]) {
+      .command(
+        defineCommand({
+          command: "list",
+          describe: "List budgets available to the token",
+          requirements: { auth: true },
+          handler: async (argv, ctx) => {
+            const budgets = await ctx.ynab.listBudgets();
+            await cacheBudgetCurrencyFormats(ctx, budgets);
+            writeBudgetList(budgets, argv.format, getOutputWriterOptions(argv));
+          },
+        }),
+      )
+      .command(
+        defineCommand({
+          command: "current",
+          describe: "Show the effective budget (from --budget-id or config)",
+          requirements: { budget: "required" },
+          handler: (argv, ctx) => {
+            writeBudgetCurrent(ctx.budgetId, argv.format, getOutputWriterOptions(argv));
+          },
+        }),
+      )
+      .command(
+        defineCommand({
+          command: "set-default",
+          describe: "Persist the default budget id locally",
+          requirements: { budget: "optional" },
+          builder: (yy) =>
+            yy.option("id", {
+              type: "string",
+              describe: "Budget id to store as the default",
+            }),
+          handler: async (argv) => {
+            const args = argv as {
+              id?: string;
+              budgetId?: string;
+              format?: string;
+              quiet?: boolean;
+              noColor?: boolean;
+            };
+            const budgetId = normalize(args.id) ?? normalize(args.budgetId);
+            if (!budgetId) {
+              throw new Error("Provide --id (or --budget-id) to set the default budget id.");
+            }
             const store = new ConfigStore();
             await store.save({ budgetId });
-          }
 
-          writeBudgetCurrent(budgetId, args.format);
-        },
-      })
+            writeBudgetCurrent(budgetId, args.format, getOutputWriterOptions(args));
+          },
+        }),
+      )
       .command({
         command: "currency <command>",
         describe: "Manage budget currency format",
-        builder: (yy) =>
+        builder: (yy: Argv<Record<string, unknown>>) =>
           yy
-            .command({
-              command: "show",
-              describe: "Show the cached budget currency format",
-              handler: async (argv) => {
-                const { appContext, format } = argv as unknown as CliArgs;
-                const ctx = appContext;
-                if (!ctx?.budgetId) {
-                  throw new MissingBudgetIdError();
-                }
-                const currencyFormat = await resolveBudgetCurrencyFormat(ctx, ctx.budgetId);
-                writeBudgetCurrency(ctx.budgetId, currencyFormat, format);
-              },
-            })
-            .command({
-              command: "refresh",
-              describe: "Refresh the budget currency format from YNAB",
-              handler: async (argv) => {
-                const { appContext, format } = argv as unknown as CliArgs;
-                const ctx = appContext;
-                if (!ctx?.budgetId) {
-                  throw new MissingBudgetIdError();
-                }
-                const currencyFormat = await resolveBudgetCurrencyFormat(ctx, ctx.budgetId, {
-                  refresh: true,
-                });
-                writeBudgetCurrency(ctx.budgetId, currencyFormat, format);
-              },
-            })
-            .command({
-              command: "set",
-              describe: "Override the cached budget currency format",
-              builder: (yyy) =>
-                yyy
-                  .option("iso-code", {
-                    type: "string",
-                    demandOption: true,
-                    describe: "ISO currency code (e.g. USD)",
-                  })
-                  .option("decimal-digits", {
-                    type: "number",
-                    demandOption: true,
-                    describe: "Decimal digits (0-3)",
-                  })
-                  .option("decimal-separator", {
-                    type: "string",
-                    demandOption: true,
-                    describe: "Decimal separator",
-                  })
-                  .option("group-separator", {
-                    type: "string",
-                    demandOption: true,
-                    describe: "Group/thousands separator",
-                  })
-                  .option("currency-symbol", {
-                    type: "string",
-                    demandOption: true,
-                    describe: "Currency symbol",
-                  })
-                  .option("symbol-first", {
-                    type: "boolean",
-                    default: true,
-                    describe: "Place currency symbol before amount",
-                  })
-                  .option("display-symbol", {
-                    type: "boolean",
-                    default: true,
-                    describe: "Include currency symbol in formatted output",
-                  })
-                  .option("example-format", {
-                    type: "string",
-                    describe: "Example format (optional)",
-                  })
-                  .check((argv) => {
-                    if (typeof argv["decimal-digits"] === "number") {
-                      if (argv["decimal-digits"] < 0 || argv["decimal-digits"] > 3) {
-                        throw new Error("Provide --decimal-digits between 0 and 3.");
+            .command(
+              defineCommand({
+                command: "show",
+                describe: "Show the cached budget currency format",
+                requirements: { auth: true, budget: "required" },
+                handler: async (argv, ctx) => {
+                  const currencyFormat = await resolveBudgetCurrencyFormat(ctx, ctx.budgetId);
+                  writeBudgetCurrency(
+                    ctx.budgetId,
+                    currencyFormat,
+                    argv.format,
+                    getOutputWriterOptions(argv),
+                  );
+                },
+              }),
+            )
+            .command(
+              defineCommand({
+                command: "refresh",
+                describe: "Refresh the budget currency format from YNAB",
+                requirements: { auth: true, budget: "required" },
+                handler: async (argv, ctx) => {
+                  const currencyFormat = await resolveBudgetCurrencyFormat(ctx, ctx.budgetId, {
+                    refresh: true,
+                  });
+                  writeBudgetCurrency(
+                    ctx.budgetId,
+                    currencyFormat,
+                    argv.format,
+                    getOutputWriterOptions(argv),
+                  );
+                },
+              }),
+            )
+            .command(
+              defineCommand({
+                command: "set",
+                describe: "Override the cached budget currency format",
+                requirements: { budget: "required" },
+                builder: (yyy) =>
+                  yyy
+                    .option("iso-code", {
+                      type: "string",
+                      demandOption: true,
+                      describe: "ISO currency code (e.g. USD)",
+                    })
+                    .option("decimal-digits", {
+                      type: "number",
+                      demandOption: true,
+                      describe: "Decimal digits (0-3)",
+                    })
+                    .option("decimal-separator", {
+                      type: "string",
+                      demandOption: true,
+                      describe: "Decimal separator",
+                    })
+                    .option("group-separator", {
+                      type: "string",
+                      demandOption: true,
+                      describe: "Group/thousands separator",
+                    })
+                    .option("currency-symbol", {
+                      type: "string",
+                      demandOption: true,
+                      describe: "Currency symbol",
+                    })
+                    .option("symbol-first", {
+                      type: "boolean",
+                      default: true,
+                      describe: "Place currency symbol before amount",
+                    })
+                    .option("display-symbol", {
+                      type: "boolean",
+                      default: true,
+                      describe: "Include currency symbol in formatted output",
+                    })
+                    .option("example-format", {
+                      type: "string",
+                      describe: "Example format (optional)",
+                    })
+                    .check((argv) => {
+                      if (typeof argv.decimalDigits === "number") {
+                        if (argv.decimalDigits < 0 || argv.decimalDigits > 3) {
+                          throw new Error("Provide --decimal-digits between 0 and 3.");
+                        }
                       }
-                    }
-                    return true;
-                  }),
-              handler: async (argv) => {
-                const args = argv as unknown as CliArgs & {
-                  "iso-code": string;
-                  "decimal-digits": number;
-                  "decimal-separator": string;
-                  "group-separator": string;
-                  "currency-symbol": string;
-                  "symbol-first": boolean;
-                  "display-symbol": boolean;
-                  "example-format"?: string;
-                };
-                const { appContext, format } = args;
-                const ctx = appContext;
-                if (!ctx?.budgetId) {
-                  throw new MissingBudgetIdError();
-                }
-
-                const currencyFormat: CurrencyFormat = {
-                  iso_code: args["iso-code"],
-                  decimal_digits: args["decimal-digits"],
-                  decimal_separator: args["decimal-separator"],
-                  group_separator: args["group-separator"],
-                  currency_symbol: args["currency-symbol"],
-                  symbol_first: Boolean(args["symbol-first"]),
-                  display_symbol: Boolean(args["display-symbol"]),
-                  example_format:
-                    args["example-format"] ??
-                    formatCurrency(1234567, {
-                      iso_code: args["iso-code"],
-                      decimal_digits: args["decimal-digits"],
-                      decimal_separator: args["decimal-separator"],
-                      group_separator: args["group-separator"],
-                      currency_symbol: args["currency-symbol"],
-                      symbol_first: Boolean(args["symbol-first"]),
-                      display_symbol: Boolean(args["display-symbol"]),
-                      example_format: "sample",
+                      return true;
                     }),
-                };
+                handler: async (argv, ctx) => {
+                  const args = argv as unknown as {
+                    isoCode: string;
+                    decimalDigits: number;
+                    decimalSeparator: string;
+                    groupSeparator: string;
+                    currencySymbol: string;
+                    symbolFirst: boolean;
+                    displaySymbol: boolean;
+                    exampleFormat?: string;
+                    format?: string;
+                    quiet?: boolean;
+                    noColor?: boolean;
+                  };
+                  const currencyFormat: CurrencyFormat = {
+                    iso_code: args.isoCode,
+                    decimal_digits: args.decimalDigits,
+                    decimal_separator: args.decimalSeparator,
+                    group_separator: args.groupSeparator,
+                    currency_symbol: args.currencySymbol,
+                    symbol_first: Boolean(args.symbolFirst),
+                    display_symbol: Boolean(args.displaySymbol),
+                    example_format:
+                      args.exampleFormat ??
+                      formatCurrency(1234567, {
+                        iso_code: args.isoCode,
+                        decimal_digits: args.decimalDigits,
+                        decimal_separator: args.decimalSeparator,
+                        group_separator: args.groupSeparator,
+                        currency_symbol: args.currencySymbol,
+                        symbol_first: Boolean(args.symbolFirst),
+                        display_symbol: Boolean(args.displaySymbol),
+                        example_format: "sample",
+                      }),
+                  };
 
-                await setBudgetCurrencyFormat(ctx, ctx.budgetId, currencyFormat);
-                writeBudgetCurrency(ctx.budgetId, currencyFormat, format);
-              },
-            })
+                  await setBudgetCurrencyFormat(ctx, ctx.budgetId, currencyFormat);
+                  writeBudgetCurrency(
+                    ctx.budgetId,
+                    currencyFormat,
+                    args.format,
+                    getOutputWriterOptions(args),
+                  );
+                },
+              }),
+            )
             .demandCommand(1, "Specify a currency subcommand")
             .strict(),
         handler: () => {},
@@ -369,4 +369,4 @@ export const budgetCommand: CommandModule<CliGlobalArgs> = {
       .demandCommand(1, "Specify a budget subcommand")
       .strict(),
   handler: () => {},
-};
+} as const;
