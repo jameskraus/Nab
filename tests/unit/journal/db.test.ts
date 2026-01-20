@@ -22,11 +22,12 @@ test("journal db initializes with expected tables", async () => {
   expect(table("schema_migrations")).toBeTruthy();
   expect(table("schema_version")).toBeTruthy();
   expect(table("history_actions")).toBeTruthy();
+  expect(table("ref_lease")).toBeTruthy();
 
   const version = db
     .query<{ version: string }, []>("select version from schema_version where id = 1")
     .get();
-  expect(version?.version).toBe("001_init");
+  expect(version?.version).toBe("002_ref_lease");
 
   const pragma = db.query<{ foreign_keys: number }, []>("PRAGMA foreign_keys").get();
   expect(pragma?.foreign_keys).toBe(1);
@@ -45,10 +46,10 @@ test("journal migrations are idempotent", async () => {
   const count = second
     .query<{ count: number }, []>("select count(*) as count from schema_migrations")
     .get();
-  expect(count?.count).toBe(1);
+  expect(count?.count).toBe(2);
   const version = second
     .query<{ version: string }, []>("select version from schema_version where id = 1")
     .get();
-  expect(version?.version).toBe("001_init");
+  expect(version?.version).toBe("002_ref_lease");
   second.close();
 });

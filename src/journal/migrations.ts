@@ -18,6 +18,21 @@ const migrations: Migration[] = [
       );
     `,
   },
+  {
+    id: "002_ref_lease",
+    sql: `
+      create table if not exists ref_lease (
+        n integer primary key autoincrement,
+        uuid text not null unique,
+        assigned_at_ms integer not null,
+        last_used_at_ms integer not null,
+        expires_at_ms integer not null
+      );
+
+      create index if not exists idx_ref_lease_expires
+      on ref_lease(expires_at_ms);
+    `,
+  },
 ];
 
 export function applyMigrations(db: Database): void {
