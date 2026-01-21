@@ -65,8 +65,8 @@ Payees:
 
 Transactions:
 - `bunx @jameskraus/nab tx list [--since-date YYYY-MM-DD] [--account-id <id>] [--only-uncategorized] [--only-unapproved] [--only-transfers] [--exclude-transfers] [--format ...]`
-- `bunx @jameskraus/nab tx get --id <transaction-id> [--format ...]`
-- `bunx @jameskraus/nab tx memo get --id <transaction-id> [--format ...]`
+- `bunx @jameskraus/nab tx get --id <transaction-id> | --ref <transaction-ref> [--format ...]`
+- `bunx @jameskraus/nab tx memo get --id <transaction-id> | --ref <transaction-ref> [--format ...]`
 - `bunx @jameskraus/nab tx create --account-id <id> --date YYYY-MM-DD --amount <amount> [--payee-id ...] [--category-id ...] [--memo ...] [--cleared ...] [--approved true|false] [--flag-color ...] [--format ...] [--dry-run] [--yes]`
 
 Notes:
@@ -87,11 +87,13 @@ Examples:
 - `bunx @jameskraus/nab tx list --only-unapproved --format json`
 - `bunx @jameskraus/nab tx list --exclude-transfers --format json`
 - `bunx @jameskraus/nab tx get --id 12345 --format json`
+- `bunx @jameskraus/nab tx get --ref A1B --format json`
 
 ## Mutations
 
 All mutating commands must:
 - require explicit `--id` selection (no implicit filters)
+- `--id` and `--ref` are mutually exclusive when both are available
 - support `--dry-run` (preview)
 - require `--yes` to apply in non-interactive contexts
 - be **idempotent** (setting a field to its current value is a no-op)

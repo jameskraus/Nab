@@ -74,6 +74,7 @@ Implementation notes:
 - `schema_migrations`: applied migration ids with timestamps
 - `schema_version`: single-row pointer to the latest migration id
 - `history_actions`: journal of applied mutations (payload + inverse patch)
+- `ref_lease`: short transaction refs (local-only, time-bound)
 
 ### 6) Auth / OAuth flow (`src/auth/**`)
 Responsibilities:
