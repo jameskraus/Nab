@@ -18,7 +18,13 @@ function collectColumns(rows: TsvRow[]): string[] {
       columns.add(key);
     }
   }
-  return Array.from(columns).sort();
+  const ordered = Array.from(columns).sort();
+  const refIndex = ordered.indexOf("ref");
+  if (refIndex > 0) {
+    ordered.splice(refIndex, 1);
+    ordered.unshift("ref");
+  }
+  return ordered;
 }
 
 export class TsvWriter implements OutputWriter<TsvRow[]> {

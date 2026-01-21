@@ -25,6 +25,7 @@ import {
 } from "@/io";
 import { normalizeArgv } from "@/journal/argv";
 import { recordHistoryAction } from "@/journal/history";
+import { getOrCreateRef, getOrCreateRefs } from "@/refs/refLease";
 
 type CliArgs = {
   format?: string;
@@ -112,6 +113,7 @@ type AccountArgs = CliArgs & {
 };
 
 type TransactionListRow = {
+  ref: string;
   id: string;
   date: string;
   account: string;
@@ -138,6 +140,7 @@ type MutationRow = {
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 const txReadRequirements = { auth: true, budget: "required" } as const;
+const txReadWithDbRequirements = { auth: true, budget: "required", db: true } as const;
 const txMutationRequirements = {
   auth: true,
   budget: "required",
@@ -158,9 +161,13 @@ type TransactionOutput = Omit<TransactionDetail, "amount" | "subtransactions"> &
   amount_display: string;
   raw_amount: number;
   subtransactions?: SubTransactionOutput[] | null;
+  ref?: string | null;
 };
 
-type MoneyWriterOptions = OutputWriterOptions & { currencyFormat?: CurrencyFormat | null };
+type MoneyWriterOptions = OutputWriterOptions & {
+  currencyFormat?: CurrencyFormat | null;
+  refsById?: Map<string, string>;
+};
 
 function isTransferTransaction(transaction: TransactionDetail): boolean {
   return Boolean(transaction.transfer_account_id);
@@ -278,8 +285,10 @@ function decorateTransaction(
 function transactionRows(
   transactions: TransactionDetail[],
   currencyFormat?: CurrencyFormat | null,
+  refsById?: Map<string, string>,
 ): TransactionListRow[] {
   return transactions.map((transaction) => ({
+    ref: refsById?.get(transaction.id) ?? "",
     id: transaction.id,
     date: formatDate(transaction.date),
     account: transaction.account_name,
@@ -292,6 +301,7 @@ function transactionRows(
 
 function transactionColumns() {
   return [
+    fieldColumn("ref", { header: "Ref" }),
     fieldColumn("date", { header: "Date" }),
     fieldColumn("account", { header: "Account" }),
     fieldColumn("payee", { header: "Payee" }),
@@ -324,11 +334,15 @@ export function writeTransactionList(
   options?: MoneyWriterOptions,
 ): void {
   const format = parseOutputFormat(rawFormat, "table");
-  const { currencyFormat, ...writerOptions } = options ?? {};
+  const { currencyFormat, refsById, ...writerOptions } = options ?? {};
 
   if (format === "json") {
-    const decorated = transactions.map((transaction) =>
-      decorateTransaction(transaction, currencyFormat),
+    const decorated = transactions.map(
+      (transaction) =>
+        ({
+          ...decorateTransaction(transaction, currencyFormat),
+          ref: refsById?.get(transaction.id) ?? null,
+        }) satisfies TransactionOutput,
     );
     createOutputWriter("json", writerOptions).write(decorated);
     return;
@@ -341,7 +355,7 @@ export function writeTransactionList(
     return;
   }
 
-  const rows = transactionRows(transactions, currencyFormat);
+  const rows = transactionRows(transactions, currencyFormat, refsById);
 
   if (format === "tsv") {
     createOutputWriter("tsv", writerOptions).write(rows);
@@ -360,12 +374,13 @@ export function writeTransactionDetail(
   options?: MoneyWriterOptions,
 ): void {
   const format = parseOutputFormat(rawFormat, "table");
-  const { currencyFormat, ...writerOptions } = options ?? {};
+  const { currencyFormat, refsById, ...writerOptions } = options ?? {};
 
   if (format === "json") {
-    createOutputWriter("json", writerOptions).write(
-      decorateTransaction(transaction, currencyFormat),
-    );
+    createOutputWriter("json", writerOptions).write({
+      ...decorateTransaction(transaction, currencyFormat),
+      ref: refsById?.get(transaction.id) ?? null,
+    } satisfies TransactionOutput);
     return;
   }
 
@@ -374,7 +389,7 @@ export function writeTransactionDetail(
     return;
   }
 
-  const rows = transactionRows([transaction], currencyFormat);
+  const rows = transactionRows([transaction], currencyFormat, refsById);
 
   if (format === "tsv") {
     createOutputWriter("tsv", writerOptions).write(rows);
@@ -466,7 +481,7 @@ export const txCommand = {
         defineCommand({
           command: "list",
           describe: "List transactions",
-          requirements: txReadRequirements,
+          requirements: txReadWithDbRequirements,
           builder: (yy: Argv<Record<string, unknown>>) =>
             yy
               .option("account-id", {
@@ -571,9 +586,16 @@ export const txCommand = {
               onlyTransfers: flags.onlyTransfers,
               excludeTransfers: flags.excludeTransfers,
             });
+            const refsById = ctx.db
+              ? getOrCreateRefs(
+                  ctx.db,
+                  filtered.map((tx) => tx.id),
+                )
+              : new Map();
             const currencyFormat = await resolveBudgetCurrencyFormat(ctx, ctx.budgetId);
             writeTransactionList(filtered, args.format, {
               currencyFormat,
+              refsById,
               ...getOutputWriterOptions(args),
             });
           },
@@ -583,15 +605,19 @@ export const txCommand = {
         defineCommand({
           command: "get",
           describe: "Get a single transaction",
-          requirements: txReadRequirements,
+          requirements: txReadWithDbRequirements,
           builder: (yy: Argv<Record<string, unknown>>) =>
             yy.option("id", { type: "string", demandOption: true, describe: "Transaction id" }),
           handler: async (argv, ctx) => {
             const args = argv as unknown as TxGetArgs;
             const transaction = await ctx.ynab.getTransaction(ctx.budgetId, args.id);
+            const refsById = ctx.db
+              ? new Map([[transaction.id, getOrCreateRef(ctx.db, transaction.id)]])
+              : new Map();
             const currencyFormat = await resolveBudgetCurrencyFormat(ctx, ctx.budgetId);
             writeTransactionDetail(transaction, args.format, {
               currencyFormat,
+              refsById,
               ...getOutputWriterOptions(args),
             });
           },

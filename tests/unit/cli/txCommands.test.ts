@@ -61,10 +61,11 @@ test("transaction list writes tsv output", () => {
   writeTransactionList([transaction], "tsv", {
     stdout: capture.stream,
     currencyFormat: USD_FORMAT,
+    refsById: new Map([["t1", "R1"]]),
   });
 
   expect(capture.output()).toBe(
-    "account\tamount\tcategory\tdate\tid\tmemo\tpayee\nChecking\t-$5.00\tGroceries\t2026-01-01\tt1\tLunch\tMarket\n",
+    "ref\taccount\tamount\tcategory\tdate\tid\tmemo\tpayee\nR1\tChecking\t-$5.00\tGroceries\t2026-01-01\tt1\tLunch\tMarket\n",
   );
 });
 
