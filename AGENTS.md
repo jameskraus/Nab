@@ -18,7 +18,7 @@
   - `--yes` (required to apply changes in non-interactive contexts)
 
 ## YNAB constraints for this repo
-- Auth: **Personal Access Token** only (no OAuth).
+- Auth: **PAT or OAuth** (Authorization Code Grant) supported.
 - Dates: treat as **date-only** (`YYYY-MM-DD`).
 - Transfers: moving transfers is out of scope for v1; attempting to move them should error.
 - Splits: split creation/editing is out of scope for v1.

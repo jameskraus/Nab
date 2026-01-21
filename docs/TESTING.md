@@ -20,7 +20,7 @@ bun test
 
 ## Running integration tests
 
-Integration tests require environment variables:
+Integration tests use PAT auth by default and require environment variables:
 
 ```bash
 export NAB_TOKENS="<PAT1>,<PAT2>"
@@ -31,7 +31,7 @@ bun test --filter integration
 
 ## Running E2E tests
 
-E2E tests execute the real CLI and require:
+E2E tests use PAT auth by default and require:
 
 ```bash
 export NAB_TOKENS="<PAT1>,<PAT2>"

@@ -1,51 +1,53 @@
-# OAuth Authorization Plan
+# OAuth (Authorization Code Grant)
 
-This document defines the planned OAuth (Authorization Code Grant) flow for `nab`
-alongside the existing Personal Access Token (PAT) workflow.
+`nab` supports YNAB OAuth in addition to Personal Access Tokens (PATs). This document
+describes the current OAuth flow and configuration.
 
-## Goals
+## Quick setup
 
-- Support YNAB OAuth in addition to PATs.
-- Use a localhost redirect handler to complete the Authorization Code Grant flow.
-- Store tokens locally and refresh when needed.
-- Keep the implementation lean and Bun/yargs-native.
+1) Create an OAuth app in YNAB Developer Settings: https://app.ynab.com/settings/developer
+2) Run `bunx @jameskraus/nab auth oauth init` to store client credentials and show the redirect URI.
+3) Run `bunx @jameskraus/nab auth oauth login` to authenticate and store tokens.
 
-## UX Overview
+## Redirect URI
 
-### Primary commands
+`nab` uses a fixed loopback redirect URI:
+
+`http://127.0.0.1:53682/oauth/callback`
+
+This must be registered with your YNAB OAuth app.
+
+## Commands
 
 - `bunx @jameskraus/nab auth oauth init`
-  - Guided setup wizard that:
-    - Shows the required redirect URI
-    - Prompts for client id + client secret
-    - Stores settings in config
+  - Interactive wizard (TTY required).
+  - Prompts for client id/secret and scope.
+  - Saves OAuth config and sets `authMethod` to `oauth`.
 
 - `bunx @jameskraus/nab auth oauth configure`
   - Stores client settings (client id, optional secret, scope).
-  - Flags (proposed):
+  - Flags:
     - `--client-id <id>` (required unless already configured)
-    - `--redirect-uri <uri>` (default `http://127.0.0.1:53682/oauth/callback`)
-    - `--client-secret <secret>` (optional; discouraged for shell history)
+    - `--client-secret <secret>` (only stored with `--store-secret`)
     - `--prompt-secret` (interactive, no-echo)
     - `--store-secret` (explicit opt-in to persist secret)
     - `--scope read-only|full` (default `full`)
-  - Env overrides for non-interactive use:
-    - `NAB_OAUTH_CLIENT_ID`
-    - `NAB_OAUTH_CLIENT_SECRET`
-    - `NAB_OAUTH_SCOPE`
+  - Redirect URI is always the fixed loopback URI above.
 
 - `bunx @jameskraus/nab auth oauth login`
-  - Runs the full Authorization Code Grant flow (requires configured client id/secret):
+  - Runs the Authorization Code flow (requires client id/secret):
     1) Start loopback server
-    2) Open or print authorization URL
+    2) Print authorization URL (and open it when possible)
     3) Receive authorization code via redirect
     4) Exchange code for tokens
     5) Store tokens in config
     6) Shut down server
-  - Flags (proposed):
-    - `--open/--no-open` (default: attempt open when TTY, always print URL)
-    - `--timeout <seconds>` (default 180)
+  - Flags:
+    - `--client-id <id>`
+    - `--client-secret <secret>`
     - `--scope read-only|full` (default config value, else `full`)
+    - `--timeout <seconds>` (default 180)
+    - `--open/--no-open` (default: open when TTY)
     - `--set-default-auth` (default true; sets auth method preference)
 
 - `bunx @jameskraus/nab auth oauth status`
@@ -62,7 +64,12 @@ alongside the existing Personal Access Token (PAT) workflow.
 
 PAT commands remain unchanged (`bunx @jameskraus/nab auth token add/list/check/remove`).
 
-YNAB Developer Settings: https://app.ynab.com/settings/developer
+## Environment variables
+
+- `NAB_OAUTH_CLIENT_ID`
+- `NAB_OAUTH_CLIENT_SECRET`
+- `NAB_OAUTH_SCOPE` (`full` or `read-only`)
+- `NAB_AUTH_METHOD` (`pat` or `oauth`)
 
 ## OAuth Endpoints (YNAB)
 
@@ -101,11 +108,9 @@ refresh_token=...
 
 Responses include `access_token`, `refresh_token`, `token_type`, and `expires_in`.
 
-## Config Shape (planned)
+## Config shape
 
-Keep PATs at top-level, add OAuth fields and auth preference:
-
-- `tokens: string[]` (PATs, existing)
+- `tokens: string[]` (PATs)
 - `oauth`:
   - `clientId?: string`
   - `clientSecret?: string` (optional; only if `--store-secret`)
@@ -114,87 +119,16 @@ Keep PATs at top-level, add OAuth fields and auth preference:
   - `token?: { accessToken, refreshToken, tokenType?, expiresAt }`
 - `authMethod?: "pat" | "oauth"`
 
-Config precedence remains:
-1) CLI flags
-2) Env vars
-3) Config file
+## Auto-refresh behavior
 
-## Local Redirect Server
+- When a command requires auth and OAuth is selected, `createAppContext` refreshes tokens
+  if the access token expires within ~60 seconds.
+- Refresh requires client id/secret + refresh token from env or config.
+- The refreshed token is persisted; if refresh fails, `createAppContext` reloads config
+  to pick up a newer token from another process when possible.
 
-- Implement with `Bun.serve` and bind to loopback only (`127.0.0.1`).
-- Use a fixed, documented redirect URI by default (YNAB requires exact match).
-- Parse the redirect `code` and `state`.
-- Respond with a small HTML success page and immediately shut down.
-- Enforce timeout (default 180s) and error on missing/mismatched state.
+## Security notes
 
-## Security + UX Notes
-
-- Use a cryptographically strong `state` and verify it.
-- No PKCE unless YNAB documents support for it (currently not required).
-- Never print access/refresh tokens in CLI output.
-- Redact secrets in all outputs (`auth oauth status`).
-- Lock down config file permissions (best-effort `chmod 600`, dir `chmod 700`).
-- Refresh tokens rotate; always store the new refresh token.
-- Avoid concurrent refresh races:
-  - Refresh only when needed (expired/near expiry).
-  - If refresh fails, reload config and retry if another process updated token.
-- Scope behavior:
-  - Default to `full` (mutations supported).
-  - If `read-only`, mutation commands should surface a clear error.
-
-## AppContext Integration Plan
-
-- Add global auth selection resolution:
-  - CLI `--auth oauth|pat` (new global flag)
-  - `NAB_AUTH_METHOD`
-  - `config.authMethod`
-  - Heuristic: prefer OAuth if configured, else PAT
-- When OAuth is active:
-  - If no access token, prompt to run `bunx @jameskraus/nab auth oauth login`
-  - If expired/near expiry, refresh before creating `YnabClient`
-  - Use `[accessToken]` to instantiate `YnabClient` (same API as PATs)
-- When PAT is active:
-  - Existing logic unchanged
-
-## Implementation Checklist
-
-1) Extend config schema + redaction:
-   - add `oauth` fields + `authMethod`
-   - redact OAuth tokens/secret
-2) OAuth primitives:
-   - `buildAuthorizeUrl`
-   - `exchangeCodeForToken`
-   - `refreshToken`
-3) Loopback server:
-   - start server, wait for callback, enforce state + timeout, shutdown
-4) CLI commands:
-   - `auth oauth init/configure/login/status/refresh/logout`
-   - `auth use <oauth|pat>`
-5) AppContext integration:
-   - resolve auth method
-   - refresh when needed
-6) Error messages:
-   - mention OAuth in missing-auth guidance
-7) Docs:
-   - keep this file updated as the design changes
-
-## Test Plan (lean, high value)
-
-Unit tests:
-- `auth/ynabOAuth`:
-  - authorize URL includes required params + optional scope/state
-  - token exchange uses form-encoded body
-  - refresh handles token rotation
-- `auth/loopbackServer`:
-  - resolves with correct code/state
-  - rejects on missing code, state mismatch, or timeout
-  - server shuts down after success
-
-AppContext tests:
-- OAuth preferred + token expired -> refresh + save + create client
-- PAT env present -> PAT path wins
-- Missing all auth -> error message mentions OAuth login
-
-CLI smoke tests:
-- `bunx @jameskraus/nab auth oauth status --format json` redacts secrets
-- `bunx @jameskraus/nab auth use oauth` updates config
+- Access/refresh tokens are never printed in CLI output.
+- Secrets and tokens are redacted in status/config output.
+- Config directory/file permissions are locked down best-effort (`0700` dir, `0600` file, non-Windows).

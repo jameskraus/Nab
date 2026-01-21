@@ -13,7 +13,7 @@ This document gives just enough context about YNAB and the YNAB API to build and
 ## YNAB API basics
 
 - Base URL: `https://api.ynab.com/v1`
-- Auth: **Bearer token** (Personal Access Token is fine for personal usage)
+- Auth: **Bearer token** (Personal Access Token or OAuth access token)
 
 ### Amounts: milliunits
 
