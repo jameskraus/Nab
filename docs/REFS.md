@@ -30,8 +30,9 @@ We use a lease table in SQLite that maps monotonically increasing integers to
 transaction UUIDs. The integer is encoded as Crockford Base32 to create the
 short ref. Rows expire after 30 days; expired rows are deleted on access.
 
-There is no max value and no reuse pool. We always mint a new ref for a new UUID
-once the old mapping has expired.
+There is no reuse pool. We always mint a new ref for a new UUID once the old
+mapping has expired. The encoder uses `Number.MAX_SAFE_INTEGER` as a practical
+ceiling.
 
 ## Encoding
 

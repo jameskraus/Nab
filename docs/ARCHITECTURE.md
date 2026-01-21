@@ -157,9 +157,9 @@ Why this matters:
 ## Tricky details / gotchas
 
 - `budget list` still needs a token because it calls the YNAB API.
-- Read-only commands skip the DB even though they still create `appContext`.
+- Read-only commands usually skip the DB even though they still create `appContext`; tx list/get and tx memo get open the DB to mint/refresh refs.
 - `auth token check` calls the YNAB API directly (fetch), not via `YnabClient`.
-- Only mutation commands call `TransactionService`; read-only commands access `ctx.ynab` directly.
+- Only mutation commands call `TransactionService`; read-only commands access `ctx.ynab` directly (even when they open the DB for refs).
 
 ## Where to start reading (fast mental model)
 

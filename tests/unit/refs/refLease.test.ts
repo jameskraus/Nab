@@ -54,3 +54,13 @@ test("getOrCreateRefs returns refs for all uuids", async () => {
   expect(refs.get("uuid-b")).toBeTruthy();
   db.close();
 });
+
+test("getOrCreateRefs handles batches larger than the default size", async () => {
+  const db = await openTempDb();
+  const uuids = Array.from({ length: 600 }, (_, index) => `uuid-${index}`);
+  const refs = getOrCreateRefs(db, uuids, { nowMs: 0, leaseMs: 1000 });
+  expect(refs.size).toBe(600);
+  expect(refs.get("uuid-0")).toBeTruthy();
+  expect(refs.get("uuid-599")).toBeTruthy();
+  db.close();
+});

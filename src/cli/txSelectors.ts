@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 
 import { normalizeIds } from "@/cli/mutations";
+import { decodeCrockfordBase32, encodeCrockfordBase32 } from "@/refs/crockford";
 import { resolveRef } from "@/refs/refLease";
 
 export type TxSelectorArgs = {
@@ -12,11 +13,31 @@ export type TxSelectorOptions = {
   requireSingle?: boolean;
 };
 
+const REF_ALLOWED_HINT =
+  "Allowed: 0123456789ABCDEFGHJKMNPQRSTVWXYZ (case-insensitive), O->0, I/L->1.";
+
+function invalidRefError(ref: string): Error {
+  return new Error(`Invalid ref: ${ref}. ${REF_ALLOWED_HINT}`);
+}
+
 export function normalizeRefs(refs: string[] | string | undefined): string[] {
   if (!refs) return [];
   const values = Array.isArray(refs) ? refs : [refs];
-  const cleaned = values.map((value) => value.trim()).filter((value) => value.length > 0);
-  return Array.from(new Set(cleaned));
+  const normalized: string[] = [];
+
+  for (const value of values) {
+    const trimmed = value.trim();
+    if (!trimmed) continue;
+
+    try {
+      const canonical = encodeCrockfordBase32(decodeCrockfordBase32(trimmed));
+      normalized.push(canonical);
+    } catch {
+      throw invalidRefError(trimmed);
+    }
+  }
+
+  return Array.from(new Set(normalized));
 }
 
 export function parseSelectors(args: TxSelectorArgs): { ids: string[]; refs: string[] } {
@@ -53,18 +74,11 @@ export function resolveSelectorIds(
       throw new Error("Ref lookups require the local database.");
     }
     return refs.map((ref) => {
-      try {
-        const uuid = resolveRef(db, ref);
-        if (!uuid) {
-          throw new Error("Ref not found or expired. Re-run `nab tx list`.");
-        }
-        return uuid;
-      } catch (err) {
-        if (err instanceof Error && err.message.startsWith("Ref not found or expired")) {
-          throw err;
-        }
-        throw new Error(`Invalid ref: ${ref}`);
+      const uuid = resolveRef(db, ref);
+      if (!uuid) {
+        throw new Error("Ref not found or expired. Re-run `nab tx list`.");
       }
+      return uuid;
     });
   }
 

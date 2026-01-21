@@ -8,8 +8,12 @@ import { normalizeRefs, resolveSelectorIds } from "@/cli/txSelectors";
 import { openJournalDb } from "@/journal/db";
 import { getOrCreateRef } from "@/refs/refLease";
 
-test("normalizeRefs trims, dedupes, and drops blanks", () => {
-  expect(normalizeRefs([" a ", "", "a", "b"])).toEqual(["a", "b"]);
+test("normalizeRefs trims, canonicalizes, dedupes, and drops blanks", () => {
+  expect(normalizeRefs([" a ", "", "a", "b"])).toEqual(["A", "B"]);
+});
+
+test("normalizeRefs canonicalizes aliases and strips leading zeros", () => {
+  expect(normalizeRefs(["o1", "01", "1", "O1"])).toEqual(["1"]);
 });
 
 test("resolveSelectorIds rejects mixed id and ref", () => {
@@ -33,7 +37,9 @@ test("resolveSelectorIds resolves ref via db", async () => {
 test("resolveSelectorIds rejects invalid ref", async () => {
   const tmp = await mkdtemp(path.join(os.tmpdir(), "nab-ref-test-"));
   const db = await openJournalDb(path.join(tmp, "nab.sqlite"));
-  expect(() => resolveSelectorIds(db, { ref: "*" })).toThrow("Invalid ref");
+  expect(() => resolveSelectorIds(db, { ref: "*" })).toThrow(
+    "Allowed: 0123456789ABCDEFGHJKMNPQRSTVWXYZ",
+  );
   db.close();
 });
 

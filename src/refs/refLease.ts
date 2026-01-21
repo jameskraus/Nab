@@ -3,6 +3,10 @@ import type { Database } from "bun:sqlite";
 import { decodeCrockfordBase32, encodeCrockfordBase32 } from "./crockford";
 
 export const DEFAULT_REF_LEASE_MS = 30 * 24 * 60 * 60 * 1000;
+const DEFAULT_REF_BATCH_SIZE = 500;
+const SQLITE_MAX_VARIABLE_NUMBER = 999;
+const INSERT_PARAMS_PER_ROW = 4;
+const MAX_INSERT_ROWS = Math.max(1, Math.floor(SQLITE_MAX_VARIABLE_NUMBER / INSERT_PARAMS_PER_ROW));
 
 type LeaseOptions = {
   nowMs?: number;
@@ -22,6 +26,14 @@ function resolveOptions(options?: LeaseOptions): { nowMs: number; leaseMs: numbe
     nowMs: options?.nowMs ?? Date.now(),
     leaseMs: options?.leaseMs ?? DEFAULT_REF_LEASE_MS,
   };
+}
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
 }
 
 function cleanupExpired(db: Database, nowMs: number): void {
@@ -105,40 +117,45 @@ export function getOrCreateRefs(
   return withImmediateTransaction(db, () => {
     cleanupExpired(db, nowMs);
 
-    const placeholders = unique.map(() => "?").join(", ");
-    const existingRows = db
-      .query<{ uuid: string; n: number }, string[]>(
-        `select uuid, n from ref_lease where uuid in (${placeholders})`,
-      )
-      .all(...unique);
-
     const map = new Map<string, number>();
-    for (const row of existingRows) {
-      map.set(row.uuid, row.n);
-    }
 
-    const missing = unique.filter((uuid) => !map.has(uuid));
-    if (missing.length > 0) {
-      const insertValues = missing.map(() => "(?, ?, ?, ?)").join(", ");
-      const insertParams: Array<string | number> = [];
-      for (const uuid of missing) {
-        insertParams.push(uuid, nowMs, nowMs, expiresAt);
-      }
-
-      const insertedRows = db
-        .query<{ uuid: string; n: number }, Array<string | number>>(
-          `insert into ref_lease (uuid, assigned_at_ms, last_used_at_ms, expires_at_ms) values ${insertValues} returning uuid, n`,
+    for (const batch of chunkArray(unique, DEFAULT_REF_BATCH_SIZE)) {
+      const placeholders = batch.map(() => "?").join(", ");
+      const existingRows = db
+        .query<{ uuid: string; n: number }, string[]>(
+          `select uuid, n from ref_lease where uuid in (${placeholders})`,
         )
-        .all(...insertParams);
+        .all(...batch);
 
-      for (const row of insertedRows) {
+      for (const row of existingRows) {
         map.set(row.uuid, row.n);
       }
-    }
 
-    db.query<unknown, Array<number | string>>(
-      `update ref_lease set last_used_at_ms = ?, expires_at_ms = ? where uuid in (${placeholders})`,
-    ).run(nowMs, expiresAt, ...unique);
+      const missing = batch.filter((uuid) => !map.has(uuid));
+      if (missing.length > 0) {
+        for (const insertBatch of chunkArray(missing, MAX_INSERT_ROWS)) {
+          const insertValues = insertBatch.map(() => "(?, ?, ?, ?)").join(", ");
+          const insertParams: Array<string | number> = [];
+          for (const uuid of insertBatch) {
+            insertParams.push(uuid, nowMs, nowMs, expiresAt);
+          }
+
+          const insertedRows = db
+            .query<{ uuid: string; n: number }, Array<string | number>>(
+              `insert into ref_lease (uuid, assigned_at_ms, last_used_at_ms, expires_at_ms) values ${insertValues} returning uuid, n`,
+            )
+            .all(...insertParams);
+
+          for (const row of insertedRows) {
+            map.set(row.uuid, row.n);
+          }
+        }
+      }
+
+      db.query<unknown, Array<number | string>>(
+        `update ref_lease set last_used_at_ms = ?, expires_at_ms = ? where uuid in (${placeholders})`,
+      ).run(nowMs, expiresAt, ...batch);
+    }
 
     const output = new Map<string, string>();
     for (const uuid of unique) {
