@@ -3,8 +3,9 @@ import type { CurrencyFormat, NewTransaction, Payee, TransactionDetail } from "y
 
 import type { AppContext } from "@/app/createAppContext";
 import { defineCommand } from "@/cli/command";
-import { normalizeIds, requireApplyConfirmation } from "@/cli/mutations";
+import { requireApplyConfirmation } from "@/cli/mutations";
 import { getOutputWriterOptions } from "@/cli/outputOptions";
+import { type TxSelectorArgs, resolveSelectorIds, validateSelectorInput } from "@/cli/txSelectors";
 import { TransactionService } from "@/domain/TransactionService";
 import type { TransactionMutationResult } from "@/domain/TransactionService";
 import { resolveBudgetCurrencyFormat } from "@/domain/budgetCurrency";
@@ -46,9 +47,7 @@ type TxListArgs = CliArgs & {
   excludeTransfers?: boolean;
 };
 
-type TxGetArgs = CliArgs & {
-  id: string;
-};
+type TxGetArgs = CliArgs & TxSelectorArgs;
 
 type TxCreateArgs = CliArgs & {
   accountId?: string;
@@ -65,52 +64,50 @@ type TxCreateArgs = CliArgs & {
   flagColor?: string;
 };
 
-type IdArgs = CliArgs & {
-  id: string[] | string;
-};
+type IdArgs = CliArgs & TxSelectorArgs;
 
-type MemoArgs = CliArgs & {
-  id: string[] | string;
-  memo?: string;
-};
+type MemoArgs = CliArgs &
+  TxSelectorArgs & {
+    memo?: string;
+  };
 
-type CategoryArgs = CliArgs & {
-  id: string[] | string;
-  categoryId?: string;
-  categoryName?: string;
-};
+type CategoryArgs = CliArgs &
+  TxSelectorArgs & {
+    categoryId?: string;
+    categoryName?: string;
+  };
 
-type PayeeArgs = CliArgs & {
-  id: string[] | string;
-  payeeId?: string;
-  payeeName?: string;
-};
+type PayeeArgs = CliArgs &
+  TxSelectorArgs & {
+    payeeId?: string;
+    payeeName?: string;
+  };
 
-type FlagArgs = CliArgs & {
-  id: string[] | string;
-  color?: string;
-};
+type FlagArgs = CliArgs &
+  TxSelectorArgs & {
+    color?: string;
+  };
 
-type ClearedArgs = CliArgs & {
-  id: string[] | string;
-  status?: string;
-};
+type ClearedArgs = CliArgs &
+  TxSelectorArgs & {
+    status?: string;
+  };
 
-type DateArgs = CliArgs & {
-  id: string[] | string;
-  date: string;
-};
+type DateArgs = CliArgs &
+  TxSelectorArgs & {
+    date: string;
+  };
 
-type AmountArgs = CliArgs & {
-  id: string;
-  amount: string;
-};
+type AmountArgs = CliArgs &
+  TxSelectorArgs & {
+    amount: string;
+  };
 
-type AccountArgs = CliArgs & {
-  id: string[] | string;
-  accountId?: string;
-  accountName?: string;
-};
+type AccountArgs = CliArgs &
+  TxSelectorArgs & {
+    accountId?: string;
+    accountName?: string;
+  };
 
 type TransactionListRow = {
   ref: string;
@@ -607,10 +604,17 @@ export const txCommand = {
           describe: "Get a single transaction",
           requirements: txReadWithDbRequirements,
           builder: (yy: Argv<Record<string, unknown>>) =>
-            yy.option("id", { type: "string", demandOption: true, describe: "Transaction id" }),
+            yy
+              .option("id", { type: "string", describe: "Transaction id" })
+              .option("ref", { type: "string", describe: "Transaction ref" })
+              .check((argv) => {
+                validateSelectorInput(argv as TxSelectorArgs, { requireSingle: true });
+                return true;
+              }),
           handler: async (argv, ctx) => {
             const args = argv as unknown as TxGetArgs;
-            const transaction = await ctx.ynab.getTransaction(ctx.budgetId, args.id);
+            const [id] = resolveSelectorIds(ctx.db, args, { requireSingle: true });
+            const transaction = await ctx.ynab.getTransaction(ctx.budgetId, id);
             const refsById = ctx.db
               ? new Map([[transaction.id, getOrCreateRef(ctx.db, transaction.id)]])
               : new Map();
@@ -803,19 +807,20 @@ export const txCommand = {
               .option("id", {
                 type: "string",
                 array: true,
-                demandOption: true,
                 describe: "Transaction id (repeatable)",
               })
+              .option("ref", {
+                type: "string",
+                array: true,
+                describe: "Transaction ref (repeatable)",
+              })
               .check((argv) => {
-                const ids = normalizeIds(argv.id as string[] | string | undefined);
-                if (ids.length === 0) {
-                  throw new Error("Provide at least one non-empty --id value.");
-                }
+                validateSelectorInput(argv as TxSelectorArgs);
                 return true;
               }),
           handler: async (argv, ctx) => {
             const args = argv as unknown as IdArgs;
-            const ids = normalizeIds(args.id);
+            const ids = resolveSelectorIds(ctx.db, args);
             requireApplyConfirmation(Boolean(args.dryRun), Boolean(args.yes));
 
             const service = new TransactionService(ctx.ynab, ctx.budgetId);
@@ -841,19 +846,20 @@ export const txCommand = {
               .option("id", {
                 type: "string",
                 array: true,
-                demandOption: true,
                 describe: "Transaction id (repeatable)",
               })
+              .option("ref", {
+                type: "string",
+                array: true,
+                describe: "Transaction ref (repeatable)",
+              })
               .check((argv) => {
-                const ids = normalizeIds(argv.id as string[] | string | undefined);
-                if (ids.length === 0) {
-                  throw new Error("Provide at least one non-empty --id value.");
-                }
+                validateSelectorInput(argv as TxSelectorArgs);
                 return true;
               }),
           handler: async (argv, ctx) => {
             const args = argv as unknown as IdArgs;
-            const ids = normalizeIds(args.id);
+            const ids = resolveSelectorIds(ctx.db, args);
             requireApplyConfirmation(Boolean(args.dryRun), Boolean(args.yes));
 
             const service = new TransactionService(ctx.ynab, ctx.budgetId);
@@ -881,19 +887,20 @@ export const txCommand = {
               .option("id", {
                 type: "string",
                 array: true,
-                demandOption: true,
                 describe: "Transaction id (repeatable)",
               })
+              .option("ref", {
+                type: "string",
+                array: true,
+                describe: "Transaction ref (repeatable)",
+              })
               .check((argv) => {
-                const ids = normalizeIds(argv.id as string[] | string | undefined);
-                if (ids.length === 0) {
-                  throw new Error("Provide at least one non-empty --id value.");
-                }
+                validateSelectorInput(argv as TxSelectorArgs);
                 return true;
               }),
           handler: async (argv, ctx) => {
             const args = argv as unknown as IdArgs;
-            const ids = normalizeIds(args.id);
+            const ids = resolveSelectorIds(ctx.db, args);
             requireApplyConfirmation(Boolean(args.dryRun), Boolean(args.yes));
 
             const service = new TransactionService(ctx.ynab, ctx.budgetId);
@@ -926,8 +933,12 @@ export const txCommand = {
                     .option("id", {
                       type: "string",
                       array: true,
-                      demandOption: true,
                       describe: "Transaction id (repeatable)",
+                    })
+                    .option("ref", {
+                      type: "string",
+                      array: true,
+                      describe: "Transaction ref (repeatable)",
                     })
                     .option("category-id", {
                       type: "string",
@@ -941,15 +952,12 @@ export const txCommand = {
                       if (!argv.categoryId && !argv.categoryName) {
                         throw new Error("Provide --category-id or --category-name");
                       }
-                      const ids = normalizeIds(argv.id as string[] | string | undefined);
-                      if (ids.length === 0) {
-                        throw new Error("Provide at least one non-empty --id value.");
-                      }
+                      validateSelectorInput(argv as TxSelectorArgs);
                       return true;
                     }),
                 handler: async (argv, ctx) => {
                   const args = argv as unknown as CategoryArgs;
-                  const ids = normalizeIds(args.id);
+                  const ids = resolveSelectorIds(ctx.db, args);
                   requireApplyConfirmation(Boolean(args.dryRun), Boolean(args.yes));
 
                   let resolvedId = args.categoryId;
@@ -988,19 +996,20 @@ export const txCommand = {
                     .option("id", {
                       type: "string",
                       array: true,
-                      demandOption: true,
                       describe: "Transaction id (repeatable)",
                     })
+                    .option("ref", {
+                      type: "string",
+                      array: true,
+                      describe: "Transaction ref (repeatable)",
+                    })
                     .check((argv) => {
-                      const ids = normalizeIds(argv.id as string[] | string | undefined);
-                      if (ids.length === 0) {
-                        throw new Error("Provide at least one non-empty --id value.");
-                      }
+                      validateSelectorInput(argv as TxSelectorArgs);
                       return true;
                     }),
                 handler: async (argv, ctx) => {
                   const args = argv as unknown as IdArgs;
-                  const ids = normalizeIds(args.id);
+                  const ids = resolveSelectorIds(ctx.db, args);
                   requireApplyConfirmation(Boolean(args.dryRun), Boolean(args.yes));
 
                   const service = new TransactionService(ctx.ynab, ctx.budgetId);
@@ -1044,7 +1053,8 @@ export const txCommand = {
                   }),
                 handler: async (argv, ctx) => {
                   const args = argv as unknown as TxGetArgs;
-                  const transaction = await ctx.ynab.getTransaction(ctx.budgetId, args.id);
+                  const [id] = resolveSelectorIds(ctx.db, args, { requireSingle: true });
+                  const transaction = await ctx.ynab.getTransaction(ctx.budgetId, id);
                   writeMemoResult(
                     transaction.id,
                     transaction.memo ?? null,
@@ -1064,8 +1074,12 @@ export const txCommand = {
                     .option("id", {
                       type: "string",
                       array: true,
-                      demandOption: true,
                       describe: "Transaction id (repeatable)",
+                    })
+                    .option("ref", {
+                      type: "string",
+                      array: true,
+                      describe: "Transaction ref (repeatable)",
                     })
                     .option("memo", {
                       type: "string",
@@ -1073,15 +1087,12 @@ export const txCommand = {
                       describe: "Memo text",
                     })
                     .check((argv) => {
-                      const ids = normalizeIds(argv.id as string[] | string | undefined);
-                      if (ids.length === 0) {
-                        throw new Error("Provide at least one non-empty --id value.");
-                      }
+                      validateSelectorInput(argv as TxSelectorArgs);
                       return true;
                     }),
                 handler: async (argv, ctx) => {
                   const args = argv as unknown as MemoArgs;
-                  const ids = normalizeIds(args.id);
+                  const ids = resolveSelectorIds(ctx.db, args);
                   requireApplyConfirmation(Boolean(args.dryRun), Boolean(args.yes));
 
                   const service = new TransactionService(ctx.ynab, ctx.budgetId);
@@ -1111,19 +1122,20 @@ export const txCommand = {
                     .option("id", {
                       type: "string",
                       array: true,
-                      demandOption: true,
                       describe: "Transaction id (repeatable)",
                     })
+                    .option("ref", {
+                      type: "string",
+                      array: true,
+                      describe: "Transaction ref (repeatable)",
+                    })
                     .check((argv) => {
-                      const ids = normalizeIds(argv.id as string[] | string | undefined);
-                      if (ids.length === 0) {
-                        throw new Error("Provide at least one non-empty --id value.");
-                      }
+                      validateSelectorInput(argv as TxSelectorArgs);
                       return true;
                     }),
                 handler: async (argv, ctx) => {
                   const args = argv as unknown as IdArgs;
-                  const ids = normalizeIds(args.id);
+                  const ids = resolveSelectorIds(ctx.db, args);
                   requireApplyConfirmation(Boolean(args.dryRun), Boolean(args.yes));
 
                   const service = new TransactionService(ctx.ynab, ctx.budgetId);
@@ -1164,8 +1176,12 @@ export const txCommand = {
                     .option("id", {
                       type: "string",
                       array: true,
-                      demandOption: true,
                       describe: "Transaction id (repeatable)",
+                    })
+                    .option("ref", {
+                      type: "string",
+                      array: true,
+                      describe: "Transaction ref (repeatable)",
                     })
                     .option("color", {
                       type: "string",
@@ -1174,15 +1190,12 @@ export const txCommand = {
                       describe: "Flag color",
                     })
                     .check((argv) => {
-                      const ids = normalizeIds(argv.id as string[] | string | undefined);
-                      if (ids.length === 0) {
-                        throw new Error("Provide at least one non-empty --id value.");
-                      }
+                      validateSelectorInput(argv as TxSelectorArgs);
                       return true;
                     }),
                 handler: async (argv, ctx) => {
                   const args = argv as unknown as FlagArgs;
-                  const ids = normalizeIds(args.id);
+                  const ids = resolveSelectorIds(ctx.db, args);
                   requireApplyConfirmation(Boolean(args.dryRun), Boolean(args.yes));
 
                   if (!args.color) {
@@ -1217,19 +1230,20 @@ export const txCommand = {
                     .option("id", {
                       type: "string",
                       array: true,
-                      demandOption: true,
                       describe: "Transaction id (repeatable)",
                     })
+                    .option("ref", {
+                      type: "string",
+                      array: true,
+                      describe: "Transaction ref (repeatable)",
+                    })
                     .check((argv) => {
-                      const ids = normalizeIds(argv.id as string[] | string | undefined);
-                      if (ids.length === 0) {
-                        throw new Error("Provide at least one non-empty --id value.");
-                      }
+                      validateSelectorInput(argv as TxSelectorArgs);
                       return true;
                     }),
                 handler: async (argv, ctx) => {
                   const args = argv as unknown as IdArgs;
-                  const ids = normalizeIds(args.id);
+                  const ids = resolveSelectorIds(ctx.db, args);
                   requireApplyConfirmation(Boolean(args.dryRun), Boolean(args.yes));
 
                   const service = new TransactionService(ctx.ynab, ctx.budgetId);
@@ -1270,8 +1284,12 @@ export const txCommand = {
                     .option("id", {
                       type: "string",
                       array: true,
-                      demandOption: true,
                       describe: "Transaction id (repeatable)",
+                    })
+                    .option("ref", {
+                      type: "string",
+                      array: true,
+                      describe: "Transaction ref (repeatable)",
                     })
                     .option("status", {
                       type: "string",
@@ -1280,15 +1298,12 @@ export const txCommand = {
                       describe: "Cleared status",
                     })
                     .check((argv) => {
-                      const ids = normalizeIds(argv.id as string[] | string | undefined);
-                      if (ids.length === 0) {
-                        throw new Error("Provide at least one non-empty --id value.");
-                      }
+                      validateSelectorInput(argv as TxSelectorArgs);
                       return true;
                     }),
                 handler: async (argv, ctx) => {
                   const args = argv as unknown as ClearedArgs;
-                  const ids = normalizeIds(args.id);
+                  const ids = resolveSelectorIds(ctx.db, args);
                   requireApplyConfirmation(Boolean(args.dryRun), Boolean(args.yes));
 
                   if (!args.status) {
@@ -1338,14 +1353,15 @@ export const txCommand = {
                     .option("id", {
                       type: "string",
                       array: true,
-                      demandOption: true,
                       describe: "Transaction id (repeatable)",
                     })
+                    .option("ref", {
+                      type: "string",
+                      array: true,
+                      describe: "Transaction ref (repeatable)",
+                    })
                     .check((argv) => {
-                      const ids = normalizeIds(argv.id as string[] | string | undefined);
-                      if (ids.length === 0) {
-                        throw new Error("Provide at least one non-empty --id value.");
-                      }
+                      validateSelectorInput(argv as TxSelectorArgs);
                       if (typeof argv.date === "string") {
                         parseDateOnly(argv.date);
                       }
@@ -1353,7 +1369,7 @@ export const txCommand = {
                     }),
                 handler: async (argv, ctx) => {
                   const args = argv as unknown as DateArgs;
-                  const ids = normalizeIds(args.id);
+                  const ids = resolveSelectorIds(ctx.db, args);
                   requireApplyConfirmation(Boolean(args.dryRun), Boolean(args.yes));
 
                   const parsedDate = parseDateOnly(args.date);
@@ -1396,8 +1412,12 @@ export const txCommand = {
                     .option("id", {
                       type: "string",
                       array: true,
-                      demandOption: true,
                       describe: "Transaction id (repeatable)",
+                    })
+                    .option("ref", {
+                      type: "string",
+                      array: true,
+                      describe: "Transaction ref (repeatable)",
                     })
                     .option("payee-id", {
                       type: "string",
@@ -1416,15 +1436,12 @@ export const txCommand = {
                       if (!argv.payeeId && !argv.payeeName) {
                         throw new Error("Provide --payee-id or --payee-name");
                       }
-                      const ids = normalizeIds(argv.id as string[] | string | undefined);
-                      if (ids.length === 0) {
-                        throw new Error("Provide at least one non-empty --id value.");
-                      }
+                      validateSelectorInput(argv as TxSelectorArgs);
                       return true;
                     }),
                 handler: async (argv, ctx) => {
                   const args = argv as unknown as PayeeArgs;
-                  const ids = normalizeIds(args.id);
+                  const ids = resolveSelectorIds(ctx.db, args);
                   requireApplyConfirmation(Boolean(args.dryRun), Boolean(args.yes));
 
                   let resolvedId = args.payeeId;
@@ -1473,8 +1490,11 @@ export const txCommand = {
                   yyy
                     .option("id", {
                       type: "string",
-                      demandOption: true,
                       describe: "Transaction id",
+                    })
+                    .option("ref", {
+                      type: "string",
+                      describe: "Transaction ref",
                     })
                     .option("amount", {
                       type: "string",
@@ -1482,15 +1502,12 @@ export const txCommand = {
                       describe: "Amount (e.g. -12.34 or 12.34)",
                     })
                     .check((argv) => {
-                      const ids = normalizeIds(argv.id as string[] | string | undefined);
-                      if (ids.length !== 1) {
-                        throw new Error("Provide exactly one --id value for amount set.");
-                      }
+                      validateSelectorInput(argv as TxSelectorArgs, { requireSingle: true });
                       return true;
                     }),
                 handler: async (argv, ctx) => {
                   const args = argv as unknown as AmountArgs;
-                  const ids = normalizeIds(args.id);
+                  const ids = resolveSelectorIds(ctx.db, args, { requireSingle: true });
                   requireApplyConfirmation(Boolean(args.dryRun), Boolean(args.yes));
                   const currencyFormat = await resolveBudgetCurrencyFormat(ctx, ctx.budgetId);
                   const milliunits = parseAmountToMilliunits(args.amount, currencyFormat);
@@ -1533,8 +1550,12 @@ export const txCommand = {
                     .option("id", {
                       type: "string",
                       array: true,
-                      demandOption: true,
                       describe: "Transaction id (repeatable)",
+                    })
+                    .option("ref", {
+                      type: "string",
+                      array: true,
+                      describe: "Transaction ref (repeatable)",
                     })
                     .option("account-id", {
                       type: "string",
@@ -1548,15 +1569,12 @@ export const txCommand = {
                       if (!argv.accountId && !argv.accountName) {
                         throw new Error("Provide --account-id or --account-name");
                       }
-                      const ids = normalizeIds(argv.id as string[] | string | undefined);
-                      if (ids.length === 0) {
-                        throw new Error("Provide at least one non-empty --id value.");
-                      }
+                      validateSelectorInput(argv as TxSelectorArgs);
                       return true;
                     }),
                 handler: async (argv, ctx) => {
                   const args = argv as unknown as AccountArgs;
-                  const ids = normalizeIds(args.id);
+                  const ids = resolveSelectorIds(ctx.db, args);
                   requireApplyConfirmation(Boolean(args.dryRun), Boolean(args.yes));
 
                   let resolvedId = args.accountId;
