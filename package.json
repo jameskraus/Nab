@@ -14,7 +14,10 @@
     "format": "biome format . --write",
     "check": "bun run lint && bun run typecheck && bun test",
     "typecheck": "tsc --noEmit",
-    "test": "bun test",
+    "test": "bun run test:unit && bun run test:integration && bun run test:e2e",
+    "test:unit": "bun test tests/unit",
+    "test:integration": "bun test tests/integration",
+    "test:e2e": "bun test tests/e2e",
     "prepare": "husky"
   },
   "files": ["src/", "README.md", "tsconfig.json"],
