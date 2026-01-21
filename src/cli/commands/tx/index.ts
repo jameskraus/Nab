@@ -1044,13 +1044,21 @@ export const txCommand = {
               defineCommand({
                 command: "get",
                 describe: "Get memo for a transaction",
-                requirements: txReadRequirements,
+                requirements: txReadWithDbRequirements,
                 builder: (yyy: Argv<Record<string, unknown>>) =>
-                  yyy.option("id", {
-                    type: "string",
-                    demandOption: true,
-                    describe: "Transaction id",
-                  }),
+                  yyy
+                    .option("id", {
+                      type: "string",
+                      describe: "Transaction id",
+                    })
+                    .option("ref", {
+                      type: "string",
+                      describe: "Transaction ref",
+                    })
+                    .check((argv) => {
+                      validateSelectorInput(argv as TxSelectorArgs, { requireSingle: true });
+                      return true;
+                    }),
                 handler: async (argv, ctx) => {
                   const args = argv as unknown as TxGetArgs;
                   const [id] = resolveSelectorIds(ctx.db, args, { requireSingle: true });
