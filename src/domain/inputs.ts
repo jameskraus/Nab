@@ -1,7 +1,8 @@
 import type { CurrencyFormat, TransactionClearedStatus, TransactionFlagColor } from "ynab";
 
+export { parseDateOnly } from "@/domain/dateOnly";
+
 const AMOUNT_REGEX = /^[+-]?\d+(?:\.\d{1,3})?$/;
-const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 const CLEARED_STATUSES: TransactionClearedStatus[] = ["cleared", "uncleared", "reconciled"];
 const FLAG_COLORS: TransactionFlagColor[] = ["red", "orange", "yellow", "green", "blue", "purple"];
 
@@ -51,18 +52,6 @@ export function parseAmountToMilliunits(
   const milliunits = integerPart * 1000 + Number(decimalPart.padEnd(3, "0"));
 
   return sign * milliunits;
-}
-
-export function parseDateOnly(input: string): string {
-  const value = input.trim();
-  if (!DATE_ONLY.test(value)) {
-    throw new Error("Date must be in YYYY-MM-DD format.");
-  }
-  const date = new Date(`${value}T00:00:00Z`);
-  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
-    throw new Error("Date must be a valid calendar date.");
-  }
-  return value;
 }
 
 export function parseClearedStatus(input: string): TransactionClearedStatus {

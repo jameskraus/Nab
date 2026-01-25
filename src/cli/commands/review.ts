@@ -5,7 +5,7 @@ import type { AppContext } from "@/app/createAppContext";
 import { defineCommand } from "@/cli/command";
 import { getOutputWriterOptions } from "@/cli/outputOptions";
 import { resolveBudgetCurrencyFormat } from "@/domain/budgetCurrency";
-import { parseDateOnly } from "@/domain/inputs";
+import { defaultSinceDate, parseDateOnly } from "@/domain/dateOnly";
 import { findMislinkedTransfers } from "@/domain/mislinkedTransfers";
 import {
   type OutputWriterOptions,
@@ -19,8 +19,6 @@ import { getOrCreateRefs } from "@/refs/refLease";
 
 const DEFAULT_SINCE_DAYS = 30;
 const DEFAULT_IMPORT_LAG_DAYS = 5;
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 type ReviewArgs = {
   sinceDate?: string;
@@ -57,12 +55,6 @@ type ReviewOutputItem = {
   phantom: ReviewOutputTransaction;
   orphan_candidates: ReviewOutputTransaction[];
 };
-
-function defaultSinceDate(): string {
-  const now = Date.now();
-  const ms = now - DEFAULT_SINCE_DAYS * DAY_MS;
-  return new Date(ms).toISOString().slice(0, 10);
-}
 
 function colorize(value: string, color: "green" | "orange", noColor: boolean): string {
   if (noColor) return value;
@@ -206,7 +198,7 @@ export const reviewCommand = {
             yy
               .option("since-date", {
                 type: "string",
-                default: defaultSinceDate(),
+                default: defaultSinceDate(DEFAULT_SINCE_DAYS),
                 describe: "Only include transactions on/after this date (YYYY-MM-DD)",
               })
               .option("import-lag-days", {
@@ -216,7 +208,9 @@ export const reviewCommand = {
               }),
           handler: async (argv, ctx) => {
             const args = argv as ReviewArgs;
-            const sinceDate = args.sinceDate ? parseDateOnly(args.sinceDate) : defaultSinceDate();
+            const sinceDate = args.sinceDate
+              ? parseDateOnly(args.sinceDate)
+              : defaultSinceDate(DEFAULT_SINCE_DAYS);
             const importLagDays = args.importLagDays ?? DEFAULT_IMPORT_LAG_DAYS;
             if (!Number.isFinite(importLagDays) || importLagDays < 0) {
               throw new Error("--import-lag-days must be 0 or greater.");

@@ -7,14 +7,21 @@ import { NotFoundError } from "@/api/errors";
 import { defineCommand } from "@/cli/command";
 import { requireApplyConfirmation } from "@/cli/mutations";
 import { getOutputWriterOptions } from "@/cli/outputOptions";
+import { withinDayDelta } from "@/domain/dateOnly";
+import {
+  accountKind,
+  isAnchorTransaction,
+  isOrphanCandidate,
+  isPhantomTransaction,
+} from "@/domain/mislinkedTransferPredicates";
 import { buildInversePatch } from "@/domain/transactionPatch";
+import { isDirectImportActive } from "@/domain/ynab/accountPredicates";
 import { type OutputWriterOptions, createOutputWriter, fieldColumn, parseOutputFormat } from "@/io";
 import { normalizeArgv } from "@/journal/argv";
 import { recordHistoryAction } from "@/journal/history";
 import { resolveRef } from "@/refs/refLease";
 
 const DEFAULT_IMPORT_LAG_DAYS = 5;
-const DAY_MS = 24 * 60 * 60 * 1000;
 const RELINK_POLL_ATTEMPTS = 3;
 const RELINK_POLL_DELAY_MS = 250;
 
@@ -48,25 +55,6 @@ export type FixMislinkedTransferContext = {
   db?: Database;
 };
 
-function toDateMs(value: string): number | null {
-  const parts = value.split("-");
-  if (parts.length !== 3) return null;
-  const year = Number(parts[0]);
-  const month = Number(parts[1]);
-  const day = Number(parts[2]);
-  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
-  const ms = Date.UTC(year, month - 1, day);
-  if (!Number.isFinite(ms)) return null;
-  return ms;
-}
-
-function withinDayDelta(a: string, b: string, maxDays: number): boolean {
-  const aMs = toDateMs(a);
-  const bMs = toDateMs(b);
-  if (aMs === null || bMs === null) return false;
-  return Math.abs(aMs - bMs) / DAY_MS <= maxDays;
-}
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -81,25 +69,6 @@ function loadRelinkPollConfig(): { attempts: number; delayMs: number } {
     attempts: Number.isFinite(attempts) && attempts >= 0 ? attempts : RELINK_POLL_ATTEMPTS,
     delayMs: Number.isFinite(delayMs) && delayMs >= 0 ? delayMs : RELINK_POLL_DELAY_MS,
   };
-}
-
-function isCheckingOrSavings(account: Account | undefined): boolean {
-  return Boolean(
-    account &&
-      (account.type === "checking" || account.type === "savings") &&
-      account.on_budget &&
-      !account.closed,
-  );
-}
-
-function isCredit(account: Account | undefined): boolean {
-  return Boolean(account && account.type === "creditCard" && account.on_budget && !account.closed);
-}
-
-function isDirectImportActive(account: Account | undefined): boolean {
-  return Boolean(
-    account?.direct_import_linked === true && account?.direct_import_in_error !== true,
-  );
 }
 
 function resolveIdOrRef(db: Parameters<typeof resolveRef>[0] | undefined, value: string): string {
@@ -186,10 +155,10 @@ function requireLinkedTransfer(anchor: TransactionDetail, phantom: TransactionDe
 }
 
 function requireAnchorPhantomStatus(anchor: TransactionDetail, phantom: TransactionDetail): void {
-  if (!anchor.import_id || anchor.cleared !== "cleared") {
+  if (!isAnchorTransaction(anchor)) {
     throw new Error("Anchor must be imported and cleared.");
   }
-  if (phantom.import_id || phantom.cleared !== "uncleared") {
+  if (!isPhantomTransaction(phantom)) {
     throw new Error("Phantom must have no import_id and be uncleared.");
   }
 }
@@ -198,7 +167,7 @@ function requireOrphanCandidate(orphan: TransactionDetail): void {
   if (orphan.transfer_account_id || orphan.transfer_transaction_id) {
     throw new Error("Orphan candidate must not be a transfer.");
   }
-  if (!orphan.import_id || orphan.cleared !== "cleared") {
+  if (!isOrphanCandidate(orphan)) {
     throw new Error("Orphan candidate must be imported and cleared.");
   }
 }
@@ -290,12 +259,9 @@ export async function runFixMislinkedTransfer(
     throw new Error("Orphan account is not direct-import linked or is in error.");
   }
 
-  const phantomIsCash = isCheckingOrSavings(phantomAccount);
-  const phantomIsCredit = isCredit(phantomAccount);
-  const orphanIsCash = isCheckingOrSavings(orphanAccount);
-  const orphanIsCredit = isCredit(orphanAccount);
-
-  if (!((phantomIsCash && orphanIsCash) || (phantomIsCredit && orphanIsCredit))) {
+  const phantomKind = accountKind(phantomAccount);
+  const orphanKind = accountKind(orphanAccount);
+  if (!phantomKind || !orphanKind || phantomKind !== orphanKind) {
     throw new Error("Orphan account type must match phantom account type.");
   }
 

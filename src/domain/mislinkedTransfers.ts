@@ -1,5 +1,15 @@
 import type { Account, TransactionDetail } from "ynab";
 
+import {
+  accountKind,
+  isAnchorTransaction,
+  isCashCreditPair,
+  isOrphanCandidate,
+  isPhantomTransaction,
+  orphanMatchesPhantom,
+} from "@/domain/mislinkedTransferPredicates";
+import { isDirectImportActive } from "@/domain/ynab/accountPredicates";
+
 type OrphanCandidate = TransactionDetail;
 
 type MislinkedTransferMatch = {
@@ -11,46 +21,6 @@ type MislinkedTransferMatch = {
 type MislinkedTransferOptions = {
   importLagDays: number;
 };
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function toDateMs(value: string): number | null {
-  const parts = value.split("-");
-  if (parts.length !== 3) return null;
-  const year = Number(parts[0]);
-  const month = Number(parts[1]);
-  const day = Number(parts[2]);
-  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
-  const ms = Date.UTC(year, month - 1, day);
-  if (!Number.isFinite(ms)) return null;
-  return ms;
-}
-
-function withinDayDelta(a: string, b: string, maxDays: number): boolean {
-  const aMs = toDateMs(a);
-  const bMs = toDateMs(b);
-  if (aMs === null || bMs === null) return false;
-  return Math.abs(aMs - bMs) / DAY_MS <= maxDays;
-}
-
-function isCheckingOrSavings(account: Account | undefined): boolean {
-  return Boolean(
-    account &&
-      (account.type === "checking" || account.type === "savings") &&
-      account.on_budget &&
-      !account.closed,
-  );
-}
-
-function isCredit(account: Account | undefined): boolean {
-  return Boolean(account && account.type === "creditCard" && account.on_budget && !account.closed);
-}
-
-function isDirectImportActive(account: Account | undefined): boolean {
-  return Boolean(
-    account?.direct_import_linked === true && account?.direct_import_in_error !== true,
-  );
-}
 
 function orphanIndexKey(kind: "cash" | "credit", amount: number): string {
   return `${kind}:${amount}`;
@@ -69,15 +39,13 @@ export function findMislinkedTransfers(
   const orphanIndex = new Map<string, TransactionDetail[]>();
 
   for (const transaction of transactions) {
-    if (transaction.transfer_account_id) continue;
-    if (!transaction.import_id) continue;
-    if (transaction.cleared !== "cleared") continue;
+    if (!isOrphanCandidate(transaction)) continue;
 
     const account = accountById.get(transaction.account_id);
     if (!account) continue;
     if (!isDirectImportActive(account)) continue;
 
-    const kind = isCheckingOrSavings(account) ? "cash" : isCredit(account) ? "credit" : null;
+    const kind = accountKind(account);
     if (!kind) continue;
 
     const key = orphanIndexKey(kind, transaction.amount);
@@ -108,33 +76,19 @@ export function findMislinkedTransfers(
     const accountB = accountById.get(other.account_id);
     if (!accountA || !accountB) continue;
 
-    const isACash = isCheckingOrSavings(accountA);
-    const isBCash = isCheckingOrSavings(accountB);
-    const isACredit = isCredit(accountA);
-    const isBCredit = isCredit(accountB);
-
-    if (!((isACash && isBCredit) || (isBCash && isACredit))) continue;
+    if (!isCashCreditPair(accountA, accountB)) continue;
 
     if (!isDirectImportActive(accountA) || !isDirectImportActive(accountB)) continue;
-
-    const aHasImport = Boolean(transaction.import_id);
-    const bHasImport = Boolean(other.import_id);
-
-    if (aHasImport && bHasImport) continue;
-    if (!aHasImport && !bHasImport) continue;
-
-    const aCleared = transaction.cleared === "cleared";
-    const bCleared = other.cleared === "cleared";
 
     let anchor: TransactionDetail | null = null;
     let phantom: TransactionDetail | null = null;
     let phantomAccount: Account | undefined;
 
-    if (aHasImport && aCleared && !bHasImport && other.cleared === "uncleared") {
+    if (isAnchorTransaction(transaction) && isPhantomTransaction(other)) {
       anchor = transaction;
       phantom = other;
       phantomAccount = accountB;
-    } else if (bHasImport && bCleared && !aHasImport && transaction.cleared === "uncleared") {
+    } else if (isAnchorTransaction(other) && isPhantomTransaction(transaction)) {
       anchor = other;
       phantom = transaction;
       phantomAccount = accountA;
@@ -144,20 +98,14 @@ export function findMislinkedTransfers(
 
     if (!anchor || !phantom || !phantomAccount) continue;
 
-    const phantomKind = isCheckingOrSavings(phantomAccount)
-      ? "cash"
-      : isCredit(phantomAccount)
-        ? "credit"
-        : null;
+    const phantomKind = accountKind(phantomAccount);
     if (!phantomKind) continue;
 
     const orphanKey = orphanIndexKey(phantomKind, phantom.amount);
     const candidates = orphanIndex.get(orphanKey) ?? [];
-    const orphanCandidates = candidates.filter((candidate) => {
-      if (candidate.account_id === phantom.account_id) return false;
-      if (!withinDayDelta(candidate.date, phantom.date, options.importLagDays)) return false;
-      return true;
-    });
+    const orphanCandidates = candidates.filter((candidate) =>
+      orphanMatchesPhantom(candidate, phantom, options.importLagDays),
+    );
 
     if (orphanCandidates.length === 0) continue;
 

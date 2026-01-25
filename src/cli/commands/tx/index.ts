@@ -134,8 +134,6 @@ type MutationRow = {
   patch: string;
 };
 
-const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
-
 const txReadRequirements = { auth: true, budget: "required" } as const;
 const txReadWithDbRequirements = { auth: true, budget: "required", db: true } as const;
 const txMutationRequirements = {
@@ -523,8 +521,8 @@ export const txCommand = {
                 if (typeof argv.accountId === "string" && argv.accountId.trim().length === 0) {
                   throw new Error("Provide a non-empty --account-id value.");
                 }
-                if (typeof argv.sinceDate === "string" && !DATE_ONLY.test(argv.sinceDate)) {
-                  throw new Error("Provide --since-date in YYYY-MM-DD format.");
+                if (typeof argv.sinceDate === "string") {
+                  argv.sinceDate = parseDateOnly(argv.sinceDate);
                 }
                 const flags = normalizeTxListFlags(argv as TxListFlagOptions);
                 if (flags.onlyUncategorized && flags.onlyUnapproved) {
