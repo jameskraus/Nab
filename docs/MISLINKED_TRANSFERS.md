@@ -18,9 +18,9 @@ Right:
     (real)                        (real)
 ```
 
-- A **real** imported payment exists on the credit card (cleared).
+- A **real** imported payment exists on the credit card (cleared or reconciled).
 - YNAB creates a **phantom** transfer on a different checking/savings account (not imported, uncleared).
-- The **real** cash outflow exists in another account as an **orphan** (imported + cleared, not linked as a transfer).
+- The **real** cash outflow exists in another account as an **orphan** (imported + cleared or reconciled, not linked as a transfer).
 
 This feature detects those cases and provides a safe fix workflow.
 
@@ -28,9 +28,9 @@ This feature detects those cases and provides a safe fix workflow.
 
 ## Terminology
 
-- **Anchor**: The imported + cleared transaction in the transfer pair. This is the "real" side that YNAB matched.
+- **Anchor**: The imported + cleared or reconciled transaction in the transfer pair. This is the "real" side that YNAB matched.
 - **Phantom**: The unimported + uncleared transaction in the transfer pair. This is the "fake" side YNAB created.
-- **Orphan candidate**: A separate imported + cleared transaction (not a transfer) that appears to be the real match for the phantom.
+- **Orphan candidate**: A separate imported + cleared or reconciled transaction (not a transfer) that appears to be the real match for the phantom.
 
 ---
 
@@ -57,11 +57,11 @@ We only surface a match when **all** of the following are true:
    - Anchor has `import_id`
    - Phantom has no `import_id`
 3) **Cleared mismatch**:
-   - Anchor is `cleared`
+   - Anchor is `cleared` or `reconciled`
    - Phantom is `uncleared`
 4) **Orphan candidate exists** (required):
    - Not a transfer (`transfer_account_id` is null)
-   - Imported + cleared
+   - Imported + cleared or reconciled
    - Same signed amount as the phantom (exact milliunits match)
    - Date within +/- `--import-lag-days` (default 5)
    - Account type matches the phantom side (checking/savings vs credit)
@@ -111,8 +111,8 @@ nab fix mislinked-transfer --anchor <id|ref> --phantom <id|ref> --orphan <id|ref
 Before making changes, the command validates:
 
 - Anchor + phantom are a linked transfer pair.
-- Anchor is imported + cleared; phantom is not imported + uncleared.
-- Orphan is not a transfer, is imported + cleared, and matches amount/date window.
+- Anchor is imported + cleared or reconciled; phantom is not imported + uncleared.
+- Orphan is not a transfer, is imported + cleared or reconciled, and matches amount/date window.
 - All accounts are direct-import linked and not in error.
 - Orphan account type matches phantom account type.
 

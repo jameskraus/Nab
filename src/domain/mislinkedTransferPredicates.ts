@@ -21,8 +21,12 @@ export function isCashCreditPair(
   return kindA !== kindB;
 }
 
+function isClearedLike(transaction: TransactionDetail): boolean {
+  return transaction.cleared === "cleared" || transaction.cleared === "reconciled";
+}
+
 export function isAnchorTransaction(transaction: TransactionDetail): boolean {
-  return Boolean(transaction.import_id && transaction.cleared === "cleared");
+  return Boolean(transaction.import_id && isClearedLike(transaction));
 }
 
 export function isPhantomTransaction(transaction: TransactionDetail): boolean {
@@ -35,7 +39,7 @@ export function isOrphanCandidate(
 ): boolean {
   if (transaction.transfer_account_id) return false;
   if (options.requireTransferTransactionId && transaction.transfer_transaction_id) return false;
-  return Boolean(transaction.import_id && transaction.cleared === "cleared");
+  return Boolean(transaction.import_id && isClearedLike(transaction));
 }
 
 export function orphanMatchesPhantom(
