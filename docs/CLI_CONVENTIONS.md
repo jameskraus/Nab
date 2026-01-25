@@ -69,6 +69,9 @@ Transactions:
 - `bunx @jameskraus/nab tx memo get --id <transaction-id> | --ref <transaction-ref> [--format ...]`
 - `bunx @jameskraus/nab tx create --account-id <id> --date YYYY-MM-DD --amount <amount> [--payee-id ...] [--category-id ...] [--memo ...] [--cleared ...] [--approved true|false] [--flag-color ...] [--format ...] [--dry-run] [--yes]`
 
+Reviews:
+- `bunx @jameskraus/nab review mislinked-transfers [--since-date YYYY-MM-DD] [--import-lag-days N] [--format ...]`
+
 Notes:
 - `--only-uncategorized` and `--only-unapproved` are mutually exclusive.
 - `--only-transfers` and `--exclude-transfers` are mutually exclusive.
@@ -100,6 +103,9 @@ All mutating commands must:
 
 History reverts:
 - `bunx @jameskraus/nab history revert --id <history-id> [--format ...] [--dry-run] [--yes]`
+
+Fixes:
+- `bunx @jameskraus/nab fix mislinked-transfer --anchor <id|ref> --phantom <id|ref> --orphan <id|ref> [--import-lag-days N] [--format ...] [--dry-run] [--yes]`
 
 ## Errors
 

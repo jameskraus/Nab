@@ -8,8 +8,10 @@ import { accountCommand } from "./commands/account";
 import { authCommand } from "./commands/auth";
 import { budgetCommand } from "./commands/budget";
 import { categoryCommand } from "./commands/category";
+import { fixCommand } from "./commands/fix";
 import { historyCommand } from "./commands/history";
 import { payeeCommand } from "./commands/payee";
+import { reviewCommand } from "./commands/review";
 import { txCommand } from "./commands/tx";
 
 type CliOptions = {
@@ -76,6 +78,8 @@ export function createCli(argv: string[], options: CliOptions) {
     .command(authCommand)
     .command(txCommand)
     .command(historyCommand)
+    .command(reviewCommand)
+    .command(fixCommand)
     .demandCommand(1, "Specify a command")
     .middleware([], true)
     .showHelpOnFail(false);

@@ -38,6 +38,18 @@ export NAB_BUDGET_ID=06443689-ec9d-45d9-a37a-53dc60014769
 bunx @jameskraus/nab budget current
 ```
 
+## Mislinked transfers
+
+Detect likely mislinked transfer pairs (phantom transfers) and fix them.
+
+```bash
+# Review likely mislinked transfers
+bunx @jameskraus/nab review mislinked-transfers --format table
+
+# Fix one (dry-run first)
+bunx @jameskraus/nab fix mislinked-transfer --anchor <ref|id> --phantom <ref|id> --orphan <ref|id> --dry-run
+```
+
 ## OAuth (optional)
 
 `nab` also supports YNAB OAuth (Authorization Code Grant) with a localhost redirect.
