@@ -3,6 +3,7 @@ import type { Argv } from "yargs";
 import type { Account, TransactionDetail } from "ynab";
 
 import type { YnabApiClient } from "@/api/YnabClient";
+import { NotFoundError } from "@/api/errors";
 import { defineCommand } from "@/cli/command";
 import { requireApplyConfirmation } from "@/cli/mutations";
 import { getOutputWriterOptions } from "@/cli/outputOptions";
@@ -14,6 +15,8 @@ import { resolveRef } from "@/refs/refLease";
 
 const DEFAULT_IMPORT_LAG_DAYS = 5;
 const DAY_MS = 24 * 60 * 60 * 1000;
+const RELINK_POLL_ATTEMPTS = 3;
+const RELINK_POLL_DELAY_MS = 250;
 
 type FixArgs = {
   anchor: string;
@@ -62,6 +65,22 @@ function withinDayDelta(a: string, b: string, maxDays: number): boolean {
   const bMs = toDateMs(b);
   if (aMs === null || bMs === null) return false;
   return Math.abs(aMs - bMs) / DAY_MS <= maxDays;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function loadRelinkPollConfig(): { attempts: number; delayMs: number } {
+  const attemptsRaw = process.env.NAB_RELINK_POLL_ATTEMPTS;
+  const delayRaw = process.env.NAB_RELINK_POLL_DELAY_MS;
+  const attempts = attemptsRaw ? Number.parseInt(attemptsRaw, 10) : RELINK_POLL_ATTEMPTS;
+  const delayMs = delayRaw ? Number.parseInt(delayRaw, 10) : RELINK_POLL_DELAY_MS;
+
+  return {
+    attempts: Number.isFinite(attempts) && attempts >= 0 ? attempts : RELINK_POLL_ATTEMPTS,
+    delayMs: Number.isFinite(delayMs) && delayMs >= 0 ? delayMs : RELINK_POLL_DELAY_MS,
+  };
 }
 
 function isCheckingOrSavings(account: Account | undefined): boolean {
@@ -184,6 +203,42 @@ function requireOrphanCandidate(orphan: TransactionDetail): void {
   }
 }
 
+async function pollPhantomUnlinked(
+  ynab: FixYnabClient,
+  budgetId: string,
+  phantomId: string,
+  anchorId: string,
+): Promise<TransactionDetail | null> {
+  const { attempts, delayMs } = loadRelinkPollConfig();
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const phantom = await ynab.getTransaction(budgetId, phantomId);
+      if (phantom.transfer_transaction_id !== anchorId) {
+        return phantom;
+      }
+    } catch (err) {
+      if (err instanceof NotFoundError) {
+        return null;
+      }
+      throw err;
+    }
+
+    if (attempt < attempts - 1) {
+      await sleep(delayMs);
+    }
+  }
+
+  try {
+    return await ynab.getTransaction(budgetId, phantomId);
+  } catch (err) {
+    if (err instanceof NotFoundError) {
+      return null;
+    }
+    throw err;
+  }
+}
+
 export async function runFixMislinkedTransfer(
   argv: FixArgs & Record<string, unknown>,
   ctx: FixMislinkedTransferContext,
@@ -288,6 +343,64 @@ export async function runFixMislinkedTransfer(
   });
   historyPatches.push({ id: orphan.id, patch });
   inversePatches.push({ id: orphan.id, patch: buildInversePatch(orphan, patch) });
+
+  const phantomAfterUpdate = await pollPhantomUnlinked(
+    ctx.ynab,
+    ctx.budgetId,
+    phantom.id,
+    anchor.id,
+  );
+  if (phantomAfterUpdate && phantomAfterUpdate.transfer_transaction_id === anchor.id) {
+    results.push({
+      action: "delete-phantom",
+      id: phantom.id,
+      status: "blocked",
+      patch: JSON.stringify({ delete: true }),
+    });
+
+    if (ctx.db && historyPatches.length > 0) {
+      recordHistoryAction(
+        ctx.db,
+        "fix.mislinked-transfer",
+        {
+          argv: normalizeArgv(argv as Record<string, unknown>),
+          txIds: historyPatches.map((entry) => entry.id),
+          patches: historyPatches,
+        },
+        inversePatches.length > 0 ? inversePatches : undefined,
+      );
+    }
+
+    writeFixResults(results, args.format, getOutputWriterOptions(args));
+    throw new Error(
+      "Phantom is still linked to anchor after relink attempt. Aborting to avoid deleting anchor.",
+    );
+  }
+
+  if (!phantomAfterUpdate) {
+    results.push({
+      action: "delete-phantom",
+      id: phantom.id,
+      status: "skipped",
+      patch: JSON.stringify({ delete: true }),
+    });
+
+    if (ctx.db && historyPatches.length > 0) {
+      recordHistoryAction(
+        ctx.db,
+        "fix.mislinked-transfer",
+        {
+          argv: normalizeArgv(argv as Record<string, unknown>),
+          txIds: historyPatches.map((entry) => entry.id),
+          patches: historyPatches,
+        },
+        inversePatches.length > 0 ? inversePatches : undefined,
+      );
+    }
+
+    writeFixResults(results, args.format, getOutputWriterOptions(args));
+    return;
+  }
 
   try {
     await ctx.ynab.deleteTransaction(ctx.budgetId, phantom.id);

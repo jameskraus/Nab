@@ -1,7 +1,18 @@
-import { expect, test } from "bun:test";
+import { afterAll, expect, test } from "bun:test";
 import type { Account, TransactionDetail } from "ynab";
 
 import { runFixMislinkedTransfer } from "@/cli/commands/fix";
+
+const ORIGINAL_POLL_DELAY = process.env.NAB_RELINK_POLL_DELAY_MS;
+process.env.NAB_RELINK_POLL_DELAY_MS = "0";
+
+afterAll(() => {
+  if (ORIGINAL_POLL_DELAY === undefined) {
+    process.env.NAB_RELINK_POLL_DELAY_MS = undefined;
+  } else {
+    process.env.NAB_RELINK_POLL_DELAY_MS = ORIGINAL_POLL_DELAY;
+  }
+});
 
 function makeTransaction(overrides: Partial<TransactionDetail>): TransactionDetail {
   return {
@@ -120,7 +131,13 @@ test("fix mislinked-transfer updates orphan payee then deletes phantom", async (
     updateTransaction: async (_budgetId: string, id: string, patch: { payee_id?: string }) => {
       calls.push({ method: "updateTransaction", args: [_budgetId, id, patch] });
       const current = transactions.get(id) ?? orphan;
-      return { ...current, ...patch };
+      const updated = { ...current, ...patch };
+      if (id === orphan.id) {
+        const relinkedPhantom = { ...phantom, transfer_transaction_id: null };
+        transactions.set(phantom.id, relinkedPhantom);
+      }
+      transactions.set(id, updated);
+      return updated;
     },
     deleteTransaction: async (_budgetId: string, id: string) => {
       calls.push({ method: "deleteTransaction", args: [_budgetId, id] });
@@ -151,4 +168,99 @@ test("fix mislinked-transfer updates orphan payee then deletes phantom", async (
   expect(
     calls.some((call) => call.method === "updateTransaction" && call.args[1] === "anchor-id"),
   ).toBe(false);
+});
+
+test("fix mislinked-transfer aborts if phantom remains linked to anchor", async () => {
+  const anchor = makeTransaction({
+    id: "anchor-id",
+    account_id: "acc-credit",
+    account_name: "Credit",
+    amount: 100000,
+    cleared: "cleared",
+    import_id: "YNAB:100000:2026-01-22:1",
+    transfer_account_id: "acc-phantom",
+    transfer_transaction_id: "phantom-id",
+  });
+  const phantom = makeTransaction({
+    id: "phantom-id",
+    account_id: "acc-phantom",
+    account_name: "Checking",
+    amount: -100000,
+    cleared: "uncleared",
+    transfer_account_id: "acc-credit",
+    transfer_transaction_id: "anchor-id",
+  });
+  const orphan = makeTransaction({
+    id: "orphan-id",
+    account_id: "acc-orphan",
+    account_name: "Checking 2",
+    amount: -100000,
+    cleared: "cleared",
+    import_id: "YNAB:-100000:2026-01-22:1",
+    transfer_account_id: null,
+    transfer_transaction_id: null,
+  });
+
+  const accounts: Account[] = [
+    makeAccount({
+      id: "acc-credit",
+      name: "Credit",
+      type: "creditCard",
+      transfer_payee_id: "payee-credit",
+    }),
+    makeAccount({
+      id: "acc-phantom",
+      name: "Phantom Checking",
+      type: "checking",
+      transfer_payee_id: "payee-phantom",
+    }),
+    makeAccount({
+      id: "acc-orphan",
+      name: "Orphan Checking",
+      type: "checking",
+      transfer_payee_id: "payee-orphan",
+    }),
+  ];
+
+  const transactions = new Map([
+    [anchor.id, anchor],
+    [phantom.id, phantom],
+    [orphan.id, orphan],
+  ]);
+
+  const calls: Array<{ method: string; args: unknown[] }> = [];
+  const ynab = {
+    getTransaction: async (_budgetId: string, id: string) => {
+      const tx = transactions.get(id);
+      if (!tx) throw new Error(`Missing transaction: ${id}`);
+      return tx;
+    },
+    listAccounts: async () => accounts,
+    updateTransaction: async (_budgetId: string, id: string, patch: { payee_id?: string }) => {
+      calls.push({ method: "updateTransaction", args: [_budgetId, id, patch] });
+      const current = transactions.get(id) ?? orphan;
+      return { ...current, ...patch };
+    },
+    deleteTransaction: async (_budgetId: string, id: string) => {
+      calls.push({ method: "deleteTransaction", args: [_budgetId, id] });
+      const current = transactions.get(id) ?? phantom;
+      return current;
+    },
+  };
+
+  const outcome = withCapturedStdout(() =>
+    runFixMislinkedTransfer(
+      {
+        anchor: "anchor-id",
+        phantom: "phantom-id",
+        orphan: "orphan-id",
+        yes: true,
+        format: "json",
+      },
+      { ynab, budgetId: "budget-1" },
+    ),
+  );
+
+  await expect(outcome).rejects.toThrow("Phantom is still linked to anchor after relink attempt.");
+  expect(calls.some((call) => call.method === "deleteTransaction")).toBe(false);
 });

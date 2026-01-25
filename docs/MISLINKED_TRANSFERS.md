@@ -60,7 +60,7 @@ We only surface a match when **all** of the following are true:
    - Anchor is `cleared`
    - Phantom is `uncleared`
 4) **Orphan candidate exists** (required):
-   - Not a transfer (`transfer_account_id` and `transfer_transaction_id` are null)
+   - Not a transfer (`transfer_account_id` is null)
    - Imported + cleared
    - Same signed amount as the phantom (exact milliunits match)
    - Date within +/- `--import-lag-days` (default 5)
