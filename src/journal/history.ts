@@ -1,10 +1,23 @@
 import type { Database } from "bun:sqlite";
 import { randomUUID } from "node:crypto";
+import type { NewTransaction, TransactionDetail } from "ynab";
+
+import type { MutationInversePatch, MutationPatch } from "@/domain/TransactionService";
+import type { JsonValue } from "@/journal/argv";
+
+export type DeletePatch = { delete: true };
+export type RestorePatch = { restore: TransactionDetail };
+
+export type HistoryForwardPatch = MutationPatch | NewTransaction;
+export type HistoryInversePatch = MutationInversePatch | DeletePatch;
+
+export type HistoryPatchEntry<Patch> = { id: string; patch: Patch };
+export type HistoryPatchList<Patch> = Array<HistoryPatchEntry<Patch>>;
 
 export type HistoryActionPayload = {
-  argv: Record<string, unknown>;
+  argv: Record<string, JsonValue>;
   txIds: string[];
-  patches?: Array<{ id: string; patch: unknown }>;
+  patches?: HistoryPatchList<HistoryForwardPatch>;
   revertOf?: string;
   restored?: Array<{ originalId: string; newId: string }>;
   sourceActionType?: string;
@@ -15,7 +28,15 @@ export type HistoryAction = {
   createdAt: string;
   actionType: string;
   payload: HistoryActionPayload;
-  inversePatch?: unknown;
+  inversePatch?: HistoryPatchList<HistoryInversePatch>;
+};
+
+type HistoryActionRow = {
+  id: string;
+  createdAt: string;
+  actionType: string;
+  payloadJson: string;
+  inverseJson: string | null;
 };
 
 export type HistoryQuery = {
@@ -27,7 +48,7 @@ export function recordHistoryAction(
   db: Database,
   actionType: string,
   payload: HistoryActionPayload,
-  inversePatch?: unknown,
+  inversePatch?: HistoryPatchList<HistoryInversePatch>,
 ): HistoryAction {
   const id = randomUUID();
   const payloadJson = JSON.stringify(payload);
@@ -39,7 +60,7 @@ export function recordHistoryAction(
   ).run(id, actionType, payloadJson, inverseJson);
 
   const row = db
-    .query<HistoryAction, [string]>(
+    .query<HistoryActionRow, [string]>(
       `select id, created_at as createdAt, action_type as actionType,
               payload_json as payloadJson, inverse_patch_json as inverseJson
        from history_actions
@@ -55,27 +76,16 @@ export function recordHistoryAction(
     id: row.id,
     createdAt: row.createdAt,
     actionType: row.actionType,
-    payload: JSON.parse(
-      (row as unknown as { payloadJson: string }).payloadJson,
-    ) as HistoryActionPayload,
-    inversePatch: (row as unknown as { inverseJson?: string | null }).inverseJson
-      ? JSON.parse((row as unknown as { inverseJson: string }).inverseJson)
+    payload: JSON.parse(row.payloadJson) as HistoryActionPayload,
+    inversePatch: row.inverseJson
+      ? (JSON.parse(row.inverseJson) as HistoryPatchList<HistoryInversePatch>)
       : undefined,
   };
 }
 
 export function getHistoryAction(db: Database, id: string): HistoryAction | null {
   const row = db
-    .query<
-      {
-        id: string;
-        createdAt: string;
-        actionType: string;
-        payloadJson: string;
-        inverseJson: string | null;
-      },
-      [string]
-    >(
+    .query<HistoryActionRow, [string]>(
       `select id, created_at as createdAt, action_type as actionType,
               payload_json as payloadJson, inverse_patch_json as inverseJson
        from history_actions
@@ -90,22 +100,15 @@ export function getHistoryAction(db: Database, id: string): HistoryAction | null
     createdAt: row.createdAt,
     actionType: row.actionType,
     payload: JSON.parse(row.payloadJson) as HistoryActionPayload,
-    inversePatch: row.inverseJson ? JSON.parse(row.inverseJson) : undefined,
+    inversePatch: row.inverseJson
+      ? (JSON.parse(row.inverseJson) as HistoryPatchList<HistoryInversePatch>)
+      : undefined,
   };
 }
 
 export function getHistoryActionByIndex(db: Database, index: number): HistoryAction | null {
   const row = db
-    .query<
-      {
-        id: string;
-        createdAt: string;
-        actionType: string;
-        payloadJson: string;
-        inverseJson: string | null;
-      },
-      [number]
-    >(
+    .query<HistoryActionRow, [number]>(
       `select id, created_at as createdAt, action_type as actionType,
               payload_json as payloadJson, inverse_patch_json as inverseJson
        from history_actions
@@ -121,7 +124,9 @@ export function getHistoryActionByIndex(db: Database, index: number): HistoryAct
     createdAt: row.createdAt,
     actionType: row.actionType,
     payload: JSON.parse(row.payloadJson) as HistoryActionPayload,
-    inversePatch: row.inverseJson ? JSON.parse(row.inverseJson) : undefined,
+    inversePatch: row.inverseJson
+      ? (JSON.parse(row.inverseJson) as HistoryPatchList<HistoryInversePatch>)
+      : undefined,
   };
 }
 
@@ -130,16 +135,7 @@ export function listHistoryActions(db: Database, query: HistoryQuery = {}): Hist
   const since = query.since;
 
   const rows = db
-    .query<
-      {
-        id: string;
-        createdAt: string;
-        actionType: string;
-        payloadJson: string;
-        inverseJson: string | null;
-      },
-      [string | null, string | null, number]
-    >(
+    .query<HistoryActionRow, [string | null, string | null, number]>(
       `select id,
               created_at as createdAt,
               action_type as actionType,
@@ -157,6 +153,8 @@ export function listHistoryActions(db: Database, query: HistoryQuery = {}): Hist
     createdAt: row.createdAt,
     actionType: row.actionType,
     payload: JSON.parse(row.payloadJson) as HistoryActionPayload,
-    inversePatch: row.inverseJson ? JSON.parse(row.inverseJson) : undefined,
+    inversePatch: row.inverseJson
+      ? (JSON.parse(row.inverseJson) as HistoryPatchList<HistoryInversePatch>)
+      : undefined,
   }));
 }

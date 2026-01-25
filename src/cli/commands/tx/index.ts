@@ -25,7 +25,13 @@ import {
   parseOutputFormat,
 } from "@/io";
 import { normalizeArgv } from "@/journal/argv";
-import { recordHistoryAction } from "@/journal/history";
+import {
+  type HistoryActionPayload,
+  type HistoryForwardPatch,
+  type HistoryInversePatch,
+  type HistoryPatchList,
+  recordHistoryAction,
+} from "@/journal/history";
 import { getOrCreateRef, getOrCreateRefs } from "@/refs/refLease";
 
 type CliArgs = {
@@ -219,14 +225,17 @@ async function recordMutationHistory(
   const applied = results.filter((result) => result.status === "updated");
   if (applied.length === 0) return;
 
-  const payload = {
+  const payload: HistoryActionPayload = {
     argv: normalizeArgv(argv),
     txIds: applied.map((result) => result.id),
-    patches: applied.map((result) => ({ id: result.id, patch: result.patch })),
+    patches: applied.map((result) => ({
+      id: result.id,
+      patch: result.patch as HistoryForwardPatch,
+    })),
   };
-  const inversePatch = applied.map((result) => ({
+  const inversePatch: HistoryPatchList<HistoryInversePatch> = applied.map((result) => ({
     id: result.id,
-    patch: result.inversePatch ?? null,
+    patch: result.inversePatch as HistoryInversePatch,
   }));
 
   recordHistoryAction(db, actionType, payload, inversePatch);

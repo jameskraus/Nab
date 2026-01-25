@@ -18,7 +18,12 @@ import { buildInversePatch } from "@/domain/transactionPatch";
 import { isDirectImportActive } from "@/domain/ynab/accountPredicates";
 import { type OutputWriterOptions, createOutputWriter, fieldColumn, parseOutputFormat } from "@/io";
 import { normalizeArgv } from "@/journal/argv";
-import { recordHistoryAction } from "@/journal/history";
+import {
+  type HistoryForwardPatch,
+  type HistoryInversePatch,
+  type HistoryPatchList,
+  recordHistoryAction,
+} from "@/journal/history";
 import { resolveRef } from "@/refs/refLease";
 
 const DEFAULT_IMPORT_LAG_DAYS = 5;
@@ -275,8 +280,8 @@ export async function runFixMislinkedTransfer(
   const patch = { payee_id: anchorTransferPayeeId };
 
   const results: FixResult[] = [];
-  const historyPatches: Array<{ id: string; patch: unknown }> = [];
-  const inversePatches: Array<{ id: string; patch: unknown }> = [];
+  const historyPatches: HistoryPatchList<HistoryForwardPatch> = [];
+  const inversePatches: HistoryPatchList<HistoryInversePatch> = [];
 
   if (dryRun) {
     results.push({

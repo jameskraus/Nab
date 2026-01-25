@@ -3,25 +3,27 @@ import type { NewTransaction, TransactionDetail } from "ynab";
 import type { TransactionPatch, YnabApiClient } from "@/api/YnabClient";
 import { TransactionService } from "@/domain/TransactionService";
 import type { TransactionMutationStatus } from "@/domain/TransactionService";
-import type { HistoryAction } from "@/journal/history";
-
-type PatchEntry = { id: string; patch: unknown };
-
-type RestorePatch = { restore: TransactionDetail };
-
-type DeletePatch = { delete: true };
+import type {
+  DeletePatch,
+  HistoryAction,
+  HistoryForwardPatch,
+  HistoryInversePatch,
+  HistoryPatchEntry,
+  HistoryPatchList,
+  RestorePatch,
+} from "@/journal/history";
 
 export type RevertResult = {
   id: string;
   status: TransactionMutationStatus;
-  patch?: unknown;
+  patch?: HistoryInversePatch;
   restoredId?: string;
 };
 
 export type RevertOutcome = {
   results: RevertResult[];
-  appliedPatches: PatchEntry[];
-  inversePatches: PatchEntry[];
+  appliedPatches: HistoryPatchList<HistoryForwardPatch>;
+  inversePatches: HistoryPatchList<HistoryInversePatch>;
   restored: Array<{ originalId: string; newId: string }>;
 };
 
@@ -29,13 +31,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function parsePatchEntries(value: unknown, label: string): PatchEntry[] {
+function parsePatchEntries<Patch>(value: unknown, label: string): HistoryPatchList<Patch> {
   if (value === null || value === undefined) return [];
   if (!Array.isArray(value)) {
     throw new Error(`Invalid ${label} patch list (expected array).`);
   }
 
-  const entries: PatchEntry[] = [];
+  const entries: HistoryPatchList<Patch> = [];
   for (const item of value) {
     if (!isRecord(item)) {
       throw new Error(`Invalid ${label} patch entry.`);
@@ -44,7 +46,7 @@ function parsePatchEntries(value: unknown, label: string): PatchEntry[] {
     if (typeof id !== "string" || id.trim().length === 0) {
       throw new Error(`Invalid ${label} patch entry id.`);
     }
-    entries.push({ id, patch: item.patch });
+    entries.push({ id, patch: item.patch as Patch });
   }
   return entries;
 }
@@ -55,6 +57,10 @@ function isRestorePatch(patch: unknown): patch is RestorePatch {
 
 function isDeletePatch(patch: unknown): patch is DeletePatch {
   return isRecord(patch) && patch.delete === true;
+}
+
+function isTransactionPatchLike(patch: unknown): patch is TransactionPatch {
+  return isRecord(patch);
 }
 
 function assertRestorable(detail: TransactionDetail): void {
@@ -93,21 +99,24 @@ export async function revertHistoryAction(options: {
   dryRun?: boolean;
 }): Promise<RevertOutcome> {
   const { ynab, budgetId, history, dryRun } = options;
-  const inverseEntries = parsePatchEntries(history.inversePatch, "inverse");
+  const inverseEntries = parsePatchEntries<HistoryInversePatch>(history.inversePatch, "inverse");
   if (inverseEntries.length === 0) {
     throw new Error("History action does not include an inverse patch.");
   }
 
-  const forwardEntries = parsePatchEntries(history.payload?.patches, "payload");
-  const forwardMap = new Map<string, unknown>();
+  const forwardEntries = parsePatchEntries<HistoryForwardPatch>(
+    history.payload?.patches,
+    "payload",
+  );
+  const forwardMap = new Map<string, HistoryForwardPatch>();
   for (const entry of forwardEntries) {
     forwardMap.set(entry.id, entry.patch);
   }
 
   const service = new TransactionService(ynab, budgetId);
   const results: RevertResult[] = [];
-  const appliedPatches: PatchEntry[] = [];
-  const inversePatches: PatchEntry[] = [];
+  const appliedPatches: HistoryPatchList<HistoryForwardPatch> = [];
+  const inversePatches: HistoryPatchList<HistoryInversePatch> = [];
   const restored: Array<{ originalId: string; newId: string }> = [];
 
   for (const entry of inverseEntries) {
@@ -150,11 +159,11 @@ export async function revertHistoryAction(options: {
       continue;
     }
 
-    if (!isRecord(patch)) {
+    if (!isTransactionPatchLike(patch)) {
       throw new Error("Inverse patch is invalid.");
     }
 
-    const [result] = await service.applyPatch([entry.id], patch as TransactionPatch, { dryRun });
+    const [result] = await service.applyPatch([entry.id], patch, { dryRun });
     if (!result) continue;
     results.push(result);
 
@@ -164,7 +173,7 @@ export async function revertHistoryAction(options: {
       }
       const forwardPatch = forwardMap.get(result.id);
       if (forwardPatch !== undefined) {
-        inversePatches.push({ id: result.id, patch: forwardPatch });
+        inversePatches.push({ id: result.id, patch: forwardPatch as HistoryInversePatch });
       }
     }
   }
