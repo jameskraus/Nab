@@ -70,3 +70,7 @@ Mutations (transactions only, v1):
 - Delete a transaction
 
 > Note: We intentionally leave budgets/payees/scheduled transactions out of scope for v1.
+
+## Full Schema
+
+The full YNAB OpenAPI API schema is available at ./ynab_openapi_spec.yaml for reference. It contains many hints about how endpoints behave and the use of different properties.
