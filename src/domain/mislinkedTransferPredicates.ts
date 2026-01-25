@@ -6,6 +6,7 @@ import { isCheckingOrSavings, isCredit } from "@/domain/ynab/accountPredicates";
 export type AccountKind = "cash" | "credit";
 
 export function accountKind(account: Account | undefined): AccountKind | null {
+  if (!account || account.deleted) return null;
   if (isCheckingOrSavings(account)) return "cash";
   if (isCredit(account)) return "credit";
   return null;

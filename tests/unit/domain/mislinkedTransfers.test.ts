@@ -424,3 +424,51 @@ test("skips when direct import is not active", () => {
   );
   expect(results).toHaveLength(0);
 });
+
+test("skips deleted transactions", () => {
+  const scenario = buildStatusScenario({
+    anchorCleared: "cleared",
+    phantomCleared: "uncleared",
+    orphanCleared: "cleared",
+  });
+
+  const deletedIds = [scenario.anchor.id, scenario.phantom.id, scenario.orphan.id];
+
+  for (const deletedId of deletedIds) {
+    const transactions = scenario.transactions.map((transaction) =>
+      transaction.id === deletedId ? { ...transaction, deleted: true } : transaction,
+    );
+
+    const results = findMislinkedTransfers(scenario.accounts, transactions, {
+      importLagDays: IMPORT_LAG_DAYS,
+    });
+
+    expect(results).toHaveLength(0);
+  }
+});
+
+test("skips deleted accounts", () => {
+  const scenario = buildStatusScenario({
+    anchorCleared: "cleared",
+    phantomCleared: "uncleared",
+    orphanCleared: "cleared",
+  });
+
+  const accountIds = [
+    scenario.anchor.account_id,
+    scenario.phantom.account_id,
+    scenario.orphan.account_id,
+  ];
+
+  for (const accountId of accountIds) {
+    const accounts = scenario.accounts.map((account) =>
+      account.id === accountId ? { ...account, deleted: true } : account,
+    );
+
+    const results = findMislinkedTransfers(accounts, scenario.transactions, {
+      importLagDays: IMPORT_LAG_DAYS,
+    });
+
+    expect(results).toHaveLength(0);
+  }
+});

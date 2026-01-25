@@ -57,28 +57,43 @@ function buildFixFixture({
   anchorCleared = "cleared",
   phantomCleared = "uncleared",
   orphanCleared = "cleared",
+  anchorDeleted = false,
+  phantomDeleted = false,
+  orphanDeleted = false,
+  anchorAccountDeleted = false,
+  phantomAccountDeleted = false,
+  orphanAccountDeleted = false,
 }: {
   anchorCleared?: ClearedStatus;
   phantomCleared?: ClearedStatus;
   orphanCleared?: ClearedStatus;
+  anchorDeleted?: boolean;
+  phantomDeleted?: boolean;
+  orphanDeleted?: boolean;
+  anchorAccountDeleted?: boolean;
+  phantomAccountDeleted?: boolean;
+  orphanAccountDeleted?: boolean;
 } = {}): FixFixture {
   const anchorAccount = acc({
     id: "acc-credit",
     name: "Credit",
     type: "creditCard",
     transfer_payee_id: "payee-credit",
+    deleted: anchorAccountDeleted,
   });
   const phantomAccount = acc({
     id: "acc-phantom",
     name: "Phantom Checking",
     type: "checking",
     transfer_payee_id: "payee-phantom",
+    deleted: phantomAccountDeleted,
   });
   const orphanAccount = acc({
     id: "acc-orphan",
     name: "Orphan Checking",
     type: "checking",
     transfer_payee_id: "payee-orphan",
+    deleted: orphanAccountDeleted,
   });
 
   const { anchor, phantom } = linkedTransferPair({
@@ -88,6 +103,7 @@ function buildFixFixture({
       amount: 100000,
       cleared: anchorCleared,
       import_id: "YNAB:100000:2026-01-22:1",
+      deleted: anchorDeleted,
     },
     phantom: {
       id: FIX_ARGS.phantom,
@@ -95,6 +111,7 @@ function buildFixFixture({
       amount: -100000,
       cleared: phantomCleared,
       import_id: null,
+      deleted: phantomDeleted,
     },
     anchorAccount,
     phantomAccount,
@@ -109,6 +126,7 @@ function buildFixFixture({
     import_id: "YNAB:-100000:2026-01-22:1",
     transfer_account_id: null,
     transfer_transaction_id: null,
+    deleted: orphanDeleted,
   });
 
   const transactions = new Map<string, TransactionDetail>([
@@ -266,3 +284,81 @@ test("fix mislinked-transfer aborts if phantom remains linked to anchor", async 
   expect(calls[0]?.id).toBe(fixture.orphan.id);
   expect(calls.some((call) => call.method === "deleteTransaction")).toBe(false);
 });
+
+const deletedTransactionCases: Array<{
+  name: string;
+  build: () => FixFixture;
+  message: string;
+}> = [
+  {
+    name: "anchor",
+    build: () => buildFixFixture({ anchorDeleted: true }),
+    message: "Anchor transaction is deleted.",
+  },
+  {
+    name: "phantom",
+    build: () => buildFixFixture({ phantomDeleted: true }),
+    message: "Phantom transaction is deleted.",
+  },
+  {
+    name: "orphan",
+    build: () => buildFixFixture({ orphanDeleted: true }),
+    message: "Orphan transaction is deleted.",
+  },
+];
+
+for (const testCase of deletedTransactionCases) {
+  test(`fix mislinked-transfer rejects deleted ${testCase.name} transaction`, async () => {
+    const fixture = testCase.build();
+    const { ynab, calls } = createYnabStub(fixture);
+
+    const outcome = withCapturedStdout(() =>
+      runFixMislinkedTransfer(FIX_ARGS, {
+        ynab,
+        budgetId: "budget-1",
+      }),
+    );
+
+    await expect(outcome).rejects.toThrow(testCase.message);
+    expect(calls).toHaveLength(0);
+  });
+}
+
+const deletedAccountCases: Array<{
+  name: string;
+  build: () => FixFixture;
+  message: string;
+}> = [
+  {
+    name: "anchor",
+    build: () => buildFixFixture({ anchorAccountDeleted: true }),
+    message: "Anchor account is deleted.",
+  },
+  {
+    name: "phantom",
+    build: () => buildFixFixture({ phantomAccountDeleted: true }),
+    message: "Phantom account is deleted.",
+  },
+  {
+    name: "orphan",
+    build: () => buildFixFixture({ orphanAccountDeleted: true }),
+    message: "Orphan account is deleted.",
+  },
+];
+
+for (const testCase of deletedAccountCases) {
+  test(`fix mislinked-transfer rejects deleted ${testCase.name} account`, async () => {
+    const fixture = testCase.build();
+    const { ynab, calls } = createYnabStub(fixture);
+
+    const outcome = withCapturedStdout(() =>
+      runFixMislinkedTransfer(FIX_ARGS, {
+        ynab,
+        budgetId: "budget-1",
+      }),
+    );
+
+    await expect(outcome).rejects.toThrow(testCase.message);
+    expect(calls).toHaveLength(0);
+  });
+}

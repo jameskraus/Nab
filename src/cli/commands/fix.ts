@@ -136,7 +136,19 @@ function requireAccount(
   if (!account) {
     throw new Error(`Missing ${label} account: ${accountId}`);
   }
+  if (account.deleted) {
+    throw new Error(`${label[0]?.toUpperCase()}${label.slice(1)} account is deleted.`);
+  }
   return account;
+}
+
+function requireTransactionNotDeleted(
+  transaction: TransactionDetail,
+  label: string,
+): void {
+  if (transaction.deleted) {
+    throw new Error(`${label[0]?.toUpperCase()}${label.slice(1)} transaction is deleted.`);
+  }
 }
 
 function requireLinkedTransfer(anchor: TransactionDetail, phantom: TransactionDetail): void {
@@ -236,6 +248,10 @@ export async function runFixMislinkedTransfer(
     ctx.ynab.getTransaction(ctx.budgetId, orphanId),
     ctx.ynab.listAccounts(ctx.budgetId),
   ]);
+
+  requireTransactionNotDeleted(anchor, "anchor");
+  requireTransactionNotDeleted(phantom, "phantom");
+  requireTransactionNotDeleted(orphan, "orphan");
 
   requireLinkedTransfer(anchor, phantom);
   requireAnchorPhantomStatus(anchor, phantom);

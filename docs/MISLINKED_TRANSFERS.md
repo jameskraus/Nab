@@ -47,6 +47,7 @@ nab review mislinked-transfers [--since-date YYYY-MM-DD] [--import-lag-days N]
 - Only evaluates **checking/savings <-> creditCard** transfer pairs.
 - Excludes `cash` and `otherAsset` accounts.
 - Requires **direct import linked** on all involved accounts.
+- Ignores deleted transactions and deleted accounts.
 
 ### Required signals
 
@@ -114,6 +115,7 @@ Before making changes, the command validates:
 - Anchor is imported + cleared; phantom is not imported + uncleared.
 - Orphan is not a transfer, is imported + cleared, and matches amount/date window.
 - All accounts are direct-import linked and not in error.
+- Anchor, phantom, orphan, and all involved accounts are not deleted.
 - Orphan account type matches phantom account type.
 
 ### Confirmed YNAB API behavior (real budget test)

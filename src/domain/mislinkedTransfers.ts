@@ -39,6 +39,7 @@ export function findMislinkedTransfers(
   const orphanIndex = new Map<string, TransactionDetail[]>();
 
   for (const transaction of transactions) {
+    if (transaction.deleted) continue;
     if (!isOrphanCandidate(transaction)) continue;
 
     const account = accountById.get(transaction.account_id);
@@ -61,12 +62,14 @@ export function findMislinkedTransfers(
   const results: MislinkedTransferMatch[] = [];
 
   for (const transaction of transactions) {
+    if (transaction.deleted) continue;
     const pairId = transaction.transfer_transaction_id;
     if (!pairId) continue;
     if (!transaction.transfer_account_id) continue;
 
     const other = transactionsById.get(pairId);
     if (!other) continue;
+    if (other.deleted) continue;
 
     const pairKey = [transaction.id, other.id].sort().join("|");
     if (seenPairs.has(pairKey)) continue;
