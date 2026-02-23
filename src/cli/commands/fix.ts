@@ -142,10 +142,7 @@ function requireAccount(
   return account;
 }
 
-function requireTransactionNotDeleted(
-  transaction: TransactionDetail,
-  label: string,
-): void {
+function requireTransactionNotDeleted(transaction: TransactionDetail, label: string): void {
   if (transaction.deleted) {
     throw new Error(`${label[0]?.toUpperCase()}${label.slice(1)} transaction is deleted.`);
   }
