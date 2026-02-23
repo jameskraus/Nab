@@ -1,5 +1,5 @@
 import type { Argv } from "yargs";
-import type { CurrencyFormat, TransactionDetail } from "ynab";
+import type { CategoryGroupWithCategories, CurrencyFormat, TransactionDetail } from "ynab";
 
 import type { AppContext } from "@/app/createAppContext";
 import { defineCommand } from "@/cli/command";
@@ -54,6 +54,59 @@ type ReviewOutputItem = {
   anchor: ReviewOutputTransaction;
   phantom: ReviewOutputTransaction;
   orphan_candidates: ReviewOutputTransaction[];
+};
+
+type SummaryCategory = {
+  id: string;
+  category_group: string;
+  category_name: string;
+  budgeted_milliunits: number;
+  activity_milliunits: number;
+  balance_milliunits: number;
+};
+
+type SummaryTransaction = {
+  id: string;
+  date: string;
+  payee: string;
+  amount_milliunits: number;
+  account: string;
+};
+
+type ReviewSummary = {
+  since_date: string;
+  overspent_categories: SummaryCategory[];
+  uncategorized_transactions: SummaryTransaction[];
+  unapproved_transactions: SummaryTransaction[];
+};
+
+type OverspentCategoryRow = {
+  categoryGroup: string;
+  categoryName: string;
+  budgeted: string;
+  activity: string;
+  balance: string;
+};
+
+type SummaryTransactionRow = {
+  date: string;
+  payee: string;
+  amount: string;
+  account: string;
+};
+
+type SummaryTsvRow = {
+  section: string;
+  id: string;
+  date: string;
+  payee: string;
+  amount: string;
+  account: string;
+  categoryGroup: string;
+  categoryName: string;
+  budgeted: string;
+  activity: string;
+  balance: string;
 };
 
 function colorize(value: string, color: "green" | "orange", noColor: boolean): string {
@@ -130,6 +183,211 @@ function toOutputItem(
   };
 }
 
+function toSummaryTransaction(transaction: TransactionDetail): SummaryTransaction {
+  return {
+    id: transaction.id,
+    date: transaction.date,
+    payee: transaction.payee_name ?? "",
+    amount_milliunits: transaction.amount,
+    account: transaction.account_name ?? "",
+  };
+}
+
+function hasUncategorizedSubtransaction(transaction: TransactionDetail): boolean {
+  if (!Array.isArray(transaction.subtransactions) || transaction.subtransactions.length === 0) {
+    return false;
+  }
+  return transaction.subtransactions.some((subtransaction) => subtransaction.category_id === null);
+}
+
+function isTransfer(transaction: TransactionDetail): boolean {
+  return Boolean(transaction.transfer_account_id || transaction.transfer_transaction_id);
+}
+
+export function isActionableUncategorizedTransaction(transaction: TransactionDetail): boolean {
+  if (transaction.deleted) return false;
+  if (isTransfer(transaction)) return false;
+  if (hasUncategorizedSubtransaction(transaction)) return true;
+  if (Array.isArray(transaction.subtransactions) && transaction.subtransactions.length > 0)
+    return false;
+  return transaction.category_id === null || transaction.category_name === "Uncategorized";
+}
+
+function isUnapproved(transaction: TransactionDetail): boolean {
+  return !transaction.deleted && transaction.approved === false;
+}
+
+function sortSummaryTransactions(items: SummaryTransaction[]): SummaryTransaction[] {
+  return items.sort(
+    (a, b) =>
+      b.date.localeCompare(a.date) ||
+      a.account.localeCompare(b.account) ||
+      a.id.localeCompare(b.id),
+  );
+}
+
+function overspentCategories(categoryGroups: CategoryGroupWithCategories[]): SummaryCategory[] {
+  const rows: SummaryCategory[] = [];
+
+  for (const group of categoryGroups) {
+    if (group.deleted) continue;
+
+    for (const category of group.categories) {
+      if (category.deleted || category.balance >= 0) continue;
+      rows.push({
+        id: category.id,
+        category_group: group.name,
+        category_name: category.name,
+        budgeted_milliunits: category.budgeted,
+        activity_milliunits: category.activity,
+        balance_milliunits: category.balance,
+      });
+    }
+  }
+
+  return rows.sort(
+    (a, b) =>
+      a.balance_milliunits - b.balance_milliunits ||
+      a.category_group.localeCompare(b.category_group) ||
+      a.category_name.localeCompare(b.category_name),
+  );
+}
+
+function buildReviewSummary(
+  categoryGroups: CategoryGroupWithCategories[],
+  uncategorizedTransactions: TransactionDetail[],
+  unapprovedTransactions: TransactionDetail[],
+  sinceDate: string,
+): ReviewSummary {
+  return {
+    since_date: sinceDate,
+    overspent_categories: overspentCategories(categoryGroups),
+    uncategorized_transactions: sortSummaryTransactions(
+      uncategorizedTransactions
+        .filter(isActionableUncategorizedTransaction)
+        .map(toSummaryTransaction),
+    ),
+    unapproved_transactions: sortSummaryTransactions(
+      unapprovedTransactions.filter(isUnapproved).map(toSummaryTransaction),
+    ),
+  };
+}
+
+function overspentCategoryRows(
+  categories: SummaryCategory[],
+  currencyFormat?: CurrencyFormat | null,
+): OverspentCategoryRow[] {
+  return categories.map((category) => ({
+    categoryGroup: category.category_group,
+    categoryName: category.category_name,
+    budgeted: formatCurrency(category.budgeted_milliunits, currencyFormat),
+    activity: formatCurrency(category.activity_milliunits, currencyFormat),
+    balance: formatCurrency(category.balance_milliunits, currencyFormat),
+  }));
+}
+
+function summaryTransactionRows(
+  transactions: SummaryTransaction[],
+  currencyFormat?: CurrencyFormat | null,
+): SummaryTransactionRow[] {
+  return transactions.map((transaction) => ({
+    date: formatDate(transaction.date),
+    payee: transaction.payee,
+    amount: formatCurrency(transaction.amount_milliunits, currencyFormat),
+    account: transaction.account,
+  }));
+}
+
+function summaryTsvRows(
+  summary: ReviewSummary,
+  currencyFormat?: CurrencyFormat | null,
+): SummaryTsvRow[] {
+  const overspentRows = summary.overspent_categories.map((category) => ({
+    section: "overspent_categories",
+    id: category.id,
+    date: "",
+    payee: "",
+    amount: "",
+    account: "",
+    categoryGroup: category.category_group,
+    categoryName: category.category_name,
+    budgeted: formatCurrency(category.budgeted_milliunits, currencyFormat),
+    activity: formatCurrency(category.activity_milliunits, currencyFormat),
+    balance: formatCurrency(category.balance_milliunits, currencyFormat),
+  }));
+
+  const uncategorizedRows = summary.uncategorized_transactions.map((transaction) => ({
+    section: "uncategorized_transactions",
+    id: transaction.id,
+    date: formatDate(transaction.date),
+    payee: transaction.payee,
+    amount: formatCurrency(transaction.amount_milliunits, currencyFormat),
+    account: transaction.account,
+    categoryGroup: "",
+    categoryName: "",
+    budgeted: "",
+    activity: "",
+    balance: "",
+  }));
+
+  const unapprovedRows = summary.unapproved_transactions.map((transaction) => ({
+    section: "unapproved_transactions",
+    id: transaction.id,
+    date: formatDate(transaction.date),
+    payee: transaction.payee,
+    amount: formatCurrency(transaction.amount_milliunits, currencyFormat),
+    account: transaction.account,
+    categoryGroup: "",
+    categoryName: "",
+    budgeted: "",
+    activity: "",
+    balance: "",
+  }));
+
+  return [...overspentRows, ...uncategorizedRows, ...unapprovedRows];
+}
+
+function reviewSummaryIds(summary: ReviewSummary): string[] {
+  const ids = new Set<string>();
+  for (const category of summary.overspent_categories) {
+    ids.add(category.id);
+  }
+  for (const transaction of summary.uncategorized_transactions) {
+    ids.add(transaction.id);
+  }
+  for (const transaction of summary.unapproved_transactions) {
+    ids.add(transaction.id);
+  }
+  return Array.from(ids);
+}
+
+function summarizeSection(label: string, count: number, noColor: boolean): string {
+  return colorize(`${label}: ${count}`, count === 0 ? "green" : "orange", noColor);
+}
+
+function writeTableSection<T extends Record<string, unknown>>(params: {
+  stdout: NodeJS.WritableStream;
+  label: string;
+  count: number;
+  rows: T[];
+  columns: Array<{
+    header: string;
+    getValue: (row: T) => unknown;
+    align?: "left" | "right";
+    format?: (value: unknown, row: T) => string;
+  }>;
+  options?: OutputWriterOptions;
+}): void {
+  const { stdout, label, count, rows, columns, options } = params;
+  stdout.write(`${summarizeSection(label, count, Boolean(options?.noColor))}\n`);
+  if (rows.length > 0) {
+    createOutputWriter("table", options).write({
+      columns,
+      rows,
+    });
+  }
+}
+
 export function writeMislinkedTransfers(
   matches: ReturnType<typeof findMislinkedTransfers>,
   rawFormat: string | undefined,
@@ -170,6 +428,90 @@ export function writeMislinkedTransfers(
       fieldColumn("orphanIds", { header: "Orphan Candidate Tx Id/Ref(s)" }),
     ],
     rows,
+  });
+}
+
+export function writeReviewSummary(
+  summary: ReviewSummary,
+  rawFormat: string | undefined,
+  options?: OutputWriterOptions & {
+    currencyFormat?: CurrencyFormat | null;
+  },
+): void {
+  const format = parseOutputFormat(rawFormat, "table");
+
+  if (format === "json") {
+    createOutputWriter("json", options).write(summary);
+    return;
+  }
+
+  if (format === "ids") {
+    createOutputWriter("ids", options).write(reviewSummaryIds(summary));
+    return;
+  }
+
+  if (format === "tsv") {
+    createOutputWriter("tsv", options).write(summaryTsvRows(summary, options?.currencyFormat));
+    return;
+  }
+
+  const stdout = options?.stdout ?? process.stdout;
+  const overspentRows = overspentCategoryRows(
+    summary.overspent_categories,
+    options?.currencyFormat,
+  );
+  const uncategorizedRows = summaryTransactionRows(
+    summary.uncategorized_transactions,
+    options?.currencyFormat,
+  );
+  const unapprovedRows = summaryTransactionRows(
+    summary.unapproved_transactions,
+    options?.currencyFormat,
+  );
+
+  writeTableSection({
+    stdout,
+    label: "Overspent Categories",
+    count: overspentRows.length,
+    rows: overspentRows,
+    columns: [
+      fieldColumn("categoryGroup", { header: "Category Group" }),
+      fieldColumn("categoryName", { header: "Category" }),
+      fieldColumn("budgeted", { header: "Budgeted", align: "right" }),
+      fieldColumn("activity", { header: "Activity", align: "right" }),
+      fieldColumn("balance", { header: "Balance", align: "right" }),
+    ],
+    options,
+  });
+  stdout.write("\n");
+
+  writeTableSection({
+    stdout,
+    label: `Uncategorized Transactions (since ${summary.since_date})`,
+    count: uncategorizedRows.length,
+    rows: uncategorizedRows,
+    columns: [
+      fieldColumn("date", { header: "Date" }),
+      fieldColumn("payee", { header: "Payee" }),
+      fieldColumn("amount", { header: "Amount", align: "right" }),
+      fieldColumn("account", { header: "Account" }),
+    ],
+    options,
+  });
+  stdout.write("\n");
+
+  writeTableSection({
+    stdout,
+    label: `Unapproved Transactions (since ${summary.since_date})`,
+    count: unapprovedRows.length,
+    rows: unapprovedRows,
+    columns: [
+      fieldColumn("date", { header: "Date" }),
+      fieldColumn("payee", { header: "Payee" }),
+      fieldColumn("amount", { header: "Amount", align: "right" }),
+      fieldColumn("account", { header: "Account" }),
+    ],
+    options,
   });
 }
 
@@ -252,6 +594,48 @@ export const reviewCommand = {
             writeMislinkedTransfers(matches, args.format, {
               currencyFormat,
               refsById,
+              ...getOutputWriterOptions(args),
+            });
+          },
+        }),
+      )
+      .command(
+        defineCommand({
+          command: "summary",
+          describe: "High-level review summary",
+          requirements: { auth: true, budget: "required", db: true },
+          builder: (yy) =>
+            yy.option("since-date", {
+              type: "string",
+              default: defaultSinceDate(DEFAULT_SINCE_DAYS),
+              describe: "Only include transactions on/after this date (YYYY-MM-DD)",
+            }),
+          handler: async (argv, ctx) => {
+            const args = argv as ReviewArgs;
+            const sinceDate = args.sinceDate
+              ? parseDateOnly(args.sinceDate)
+              : defaultSinceDate(DEFAULT_SINCE_DAYS);
+            const [categoryGroups, uncategorizedTransactions, unapprovedTransactions] =
+              await Promise.all([
+                ctx.ynab.listCategories(ctx.budgetId),
+                ctx.ynab.listTransactions(ctx.budgetId, sinceDate, "uncategorized"),
+                ctx.ynab.listTransactions(ctx.budgetId, sinceDate, "unapproved"),
+              ]);
+
+            const summary = buildReviewSummary(
+              categoryGroups,
+              uncategorizedTransactions,
+              unapprovedTransactions,
+              sinceDate,
+            );
+            const format = parseOutputFormat(args.format, "table");
+            const currencyFormat =
+              format === "table" || format === "tsv"
+                ? await resolveBudgetCurrencyFormat(ctx as AppContext, ctx.budgetId)
+                : null;
+
+            writeReviewSummary(summary, args.format, {
+              currencyFormat,
               ...getOutputWriterOptions(args),
             });
           },

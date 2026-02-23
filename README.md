@@ -50,6 +50,18 @@ bunx @jameskraus/nab review mislinked-transfers --format table
 bunx @jameskraus/nab fix mislinked-transfer --anchor <ref|id> --phantom <ref|id> --orphan <ref|id> --dry-run
 ```
 
+## Review summary
+
+Get a high-level review of overspending, uncategorized transactions, and unapproved transactions.
+
+```bash
+# Overspent categories + uncategorized/unapproved transactions
+bunx @jameskraus/nab review summary --format table
+
+# Customize transaction window (default: last 30 days)
+bunx @jameskraus/nab review summary --since-date 2026-01-01 --format json
+```
+
 ## OAuth (optional)
 
 `nab` also supports YNAB OAuth (Authorization Code Grant) with a localhost redirect.

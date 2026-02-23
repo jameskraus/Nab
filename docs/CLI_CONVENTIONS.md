@@ -71,6 +71,7 @@ Transactions:
 
 Reviews:
 - `bunx @jameskraus/nab review mislinked-transfers [--since-date YYYY-MM-DD] [--import-lag-days N] [--format ...]`
+- `bunx @jameskraus/nab review summary [--since-date YYYY-MM-DD] [--format ...]`
 
 Notes:
 - `--only-uncategorized` and `--only-unapproved` are mutually exclusive.

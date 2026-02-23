@@ -3,7 +3,11 @@ import { Writable } from "node:stream";
 import { expect, test } from "bun:test";
 import type { CurrencyFormat, TransactionDetail } from "ynab";
 
-import { writeMislinkedTransfers } from "@/cli/commands/review";
+import {
+  isActionableUncategorizedTransaction,
+  writeMislinkedTransfers,
+  writeReviewSummary,
+} from "@/cli/commands/review";
 import type { MislinkedTransferMatch } from "@/domain/mislinkedTransfers";
 
 function createCapture() {
@@ -41,7 +45,27 @@ function makeTransaction(overrides: Partial<TransactionDetail>): TransactionDeta
     account_id: "acc1",
     deleted: false,
     account_name: "Checking",
+    transfer_account_id: null,
+    transfer_transaction_id: null,
     subtransactions: [],
+    ...overrides,
+  };
+}
+
+type SubTransaction = NonNullable<TransactionDetail["subtransactions"]>[number];
+
+function makeSubtransaction(overrides: Partial<SubTransaction> = {}): SubTransaction {
+  return {
+    id: "sub-1",
+    transaction_id: "t1",
+    amount: -1000,
+    memo: null,
+    payee_id: null,
+    payee_name: null,
+    category_id: "cat-1",
+    category_name: "Groceries",
+    transfer_account_id: null,
+    deleted: false,
     ...overrides,
   };
 }
@@ -133,4 +157,176 @@ test("review mislinked transfers writes ids output", () => {
   const capture = createCapture();
   writeMislinkedTransfers([makeMatch()], "ids", { stdout: capture.stream });
   expect(capture.output()).toBe("phantom\n");
+});
+
+test("actionable uncategorized excludes transfers", () => {
+  const transfer = makeTransaction({
+    category_id: null,
+    category_name: null,
+    transfer_account_id: "acc2",
+    transfer_transaction_id: "tx2",
+  });
+
+  expect(isActionableUncategorizedTransaction(transfer)).toBe(false);
+});
+
+test("actionable uncategorized excludes split parent with categorized subtransactions", () => {
+  const splitParent = makeTransaction({
+    id: "split-parent",
+    category_id: null,
+    category_name: null,
+    subtransactions: [
+      makeSubtransaction({
+        id: "sub-1",
+        transaction_id: "split-parent",
+        category_id: "cat-1",
+        category_name: "Groceries",
+      }),
+    ],
+  });
+
+  expect(isActionableUncategorizedTransaction(splitParent)).toBe(false);
+});
+
+test("actionable uncategorized includes split parent with uncategorized subtransaction", () => {
+  const splitParent = makeTransaction({
+    id: "split-parent",
+    category_id: null,
+    category_name: null,
+    subtransactions: [
+      makeSubtransaction({
+        id: "sub-1",
+        transaction_id: "split-parent",
+        category_id: null,
+        category_name: null,
+      }),
+    ],
+  });
+
+  expect(isActionableUncategorizedTransaction(splitParent)).toBe(true);
+});
+
+test("review summary writes json output", () => {
+  const capture = createCapture();
+  writeReviewSummary(
+    {
+      since_date: "2026-01-01",
+      overspent_categories: [
+        {
+          id: "cat-1",
+          category_group: "Bills",
+          category_name: "Electric",
+          budgeted_milliunits: 100_000,
+          activity_milliunits: -120_000,
+          balance_milliunits: -20_000,
+        },
+      ],
+      uncategorized_transactions: [
+        {
+          id: "tx-1",
+          date: "2026-01-15",
+          payee: "Merchant A",
+          amount_milliunits: -5_000,
+          account: "Checking",
+        },
+      ],
+      unapproved_transactions: [
+        {
+          id: "tx-2",
+          date: "2026-01-20",
+          payee: "Merchant B",
+          amount_milliunits: -10_000,
+          account: "Visa",
+        },
+      ],
+    },
+    "json",
+    { stdout: capture.stream },
+  );
+
+  const payload = JSON.parse(capture.output()) as {
+    since_date: string;
+    overspent_categories: Array<{ id: string }>;
+    uncategorized_transactions: Array<{ id: string }>;
+    unapproved_transactions: Array<{ id: string }>;
+  };
+
+  expect(payload.since_date).toBe("2026-01-01");
+  expect(payload.overspent_categories.map((item) => item.id)).toEqual(["cat-1"]);
+  expect(payload.uncategorized_transactions.map((item) => item.id)).toEqual(["tx-1"]);
+  expect(payload.unapproved_transactions.map((item) => item.id)).toEqual(["tx-2"]);
+});
+
+test("review summary writes ids output with unique ids", () => {
+  const capture = createCapture();
+  writeReviewSummary(
+    {
+      since_date: "2026-01-01",
+      overspent_categories: [
+        {
+          id: "cat-1",
+          category_group: "Bills",
+          category_name: "Electric",
+          budgeted_milliunits: 100_000,
+          activity_milliunits: -120_000,
+          balance_milliunits: -20_000,
+        },
+      ],
+      uncategorized_transactions: [
+        {
+          id: "tx-1",
+          date: "2026-01-15",
+          payee: "Merchant A",
+          amount_milliunits: -5_000,
+          account: "Checking",
+        },
+      ],
+      unapproved_transactions: [
+        {
+          id: "tx-1",
+          date: "2026-01-15",
+          payee: "Merchant A",
+          amount_milliunits: -5_000,
+          account: "Checking",
+        },
+      ],
+    },
+    "ids",
+    { stdout: capture.stream },
+  );
+
+  expect(capture.output()).toBe("cat-1\ntx-1\n");
+});
+
+test("review summary writes table output with section summaries", () => {
+  const capture = createCapture();
+  writeReviewSummary(
+    {
+      since_date: "2026-01-01",
+      overspent_categories: [],
+      uncategorized_transactions: [
+        {
+          id: "tx-1",
+          date: "2026-01-15",
+          payee: "Merchant A",
+          amount_milliunits: -5_000,
+          account: "Checking",
+        },
+      ],
+      unapproved_transactions: [],
+    },
+    "table",
+    {
+      stdout: capture.stream,
+      noColor: true,
+      currencyFormat: USD_FORMAT,
+    },
+  );
+
+  const output = capture.output();
+  expect(output).toContain("Overspent Categories: 0");
+  expect(output).toContain("Uncategorized Transactions (since 2026-01-01): 1");
+  expect(output).toContain("Unapproved Transactions (since 2026-01-01): 0");
+  expect(output).toContain("Merchant A");
+  expect(output).toContain("-$5.00");
 });
