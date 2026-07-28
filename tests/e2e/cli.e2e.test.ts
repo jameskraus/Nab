@@ -54,6 +54,18 @@ type CategoryListItem = {
   deleted?: boolean;
 };
 
+type BudgetStatusItem = {
+  id: string;
+  assigned: { amount_display: string; raw_amount: number };
+};
+
+type BudgetStatusPayload = {
+  schema_version: number;
+  month: string;
+  ready_to_assign: { state: string };
+  categories: BudgetStatusItem[];
+};
+
 type TransactionDetail = {
   id: string;
   account_id?: string;
@@ -212,6 +224,67 @@ if (!token || !budgetId) {
 
     const budgets = JSON.parse(stdout) as Array<{ id: string }>;
     expect(budgets.some((budget) => budget.id === REQUIRED_BUDGET_ID)).toBe(true);
+  });
+
+  test("e2e: transaction review returns a versioned attention queue", async () => {
+    const result = await runCli(
+      ["review", "transactions", "--since-date", "2026-01-01", "--limit", "2", "--format", "json"],
+      baseEnv,
+    );
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr.trim()).toBe("");
+
+    const payload = JSON.parse(result.stdout) as {
+      schema_version: number;
+      counts: { total: number; returned: number };
+      items: Array<{ id: string; issues: string[] }>;
+    };
+    expect(payload.schema_version).toBe(1);
+    expect(payload.counts.returned).toBeLessThanOrEqual(2);
+    expect(payload.items.every((item) => item.id && item.issues.length > 0)).toBe(true);
+  });
+
+  test("e2e: budget status and category assignment dry-run", async () => {
+    const statusResult = await runCli(
+      ["budget", "status", "--month", "current", "--all", "--format", "json"],
+      baseEnv,
+    );
+    expect(statusResult.exitCode).toBe(0);
+    expect(statusResult.stderr.trim()).toBe("");
+
+    const status = JSON.parse(statusResult.stdout) as BudgetStatusPayload;
+    expect(status.schema_version).toBe(1);
+    expect(status.month).toMatch(/^\d{4}-\d{2}-01$/);
+    expect(status.ready_to_assign.state.length).toBeGreaterThan(0);
+    const category = status.categories[0];
+    if (!category) return;
+
+    const dryRun = await runCli(
+      [
+        "category",
+        "set-assigned",
+        "--id",
+        category.id,
+        "--month",
+        status.month,
+        "--amount",
+        category.assigned.amount_display,
+        "--dry-run",
+        "--format",
+        "json",
+      ],
+      baseEnv,
+    );
+    expect(dryRun.exitCode).toBe(0);
+    expect(dryRun.stderr.trim()).toBe("");
+    const preview = JSON.parse(dryRun.stdout) as {
+      status: string;
+      raw_assigned: number;
+      verified: boolean;
+    };
+    expect(preview.status).toBe("noop");
+    expect(preview.raw_assigned).toBe(category.assigned.raw_amount);
+    expect(preview.verified).toBe(true);
   });
 
   test("e2e: tx get returns transaction json", async () => {

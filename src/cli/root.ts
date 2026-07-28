@@ -4,6 +4,7 @@ import { formatError } from "@/util/errors";
 import { exitCodeForError } from "@/util/exitCodes";
 import type { Logger } from "pino";
 import type { Argv } from "yargs";
+import packageJson from "../../package.json";
 import { accountCommand } from "./commands/account";
 import { authCommand } from "./commands/auth";
 import { budgetCommand } from "./commands/budget";
@@ -26,7 +27,7 @@ export function createCli(argv: string[], options: CliOptions) {
     .usage("$0 <command> [options]")
     .help()
     .alias("h", "help")
-    .version("0.1.0")
+    .version(packageJson.version)
     .alias("v", "version")
     .strict()
     .parserConfiguration({ "camel-case-expansion": true, "strip-dashed": true })

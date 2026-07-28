@@ -76,17 +76,30 @@ export const historyCommand = {
           describe: "Revert a recorded action",
           requirements: { db: true, auth: true, budget: "required", mutation: true },
           builder: (yy) =>
-            yy.option("id", {
-              type: "string",
-              demandOption: true,
-              describe: "History id to revert",
-            }),
+            yy
+              .option("id", {
+                type: "string",
+                demandOption: true,
+                describe: "History id to revert",
+              })
+              .option("allow-over-assigned", {
+                type: "boolean",
+                default: false,
+                describe: "Allow a category revert to make Ready to Assign negative",
+              })
+              .option("allow-negative-assigned", {
+                type: "boolean",
+                default: false,
+                describe: "Allow a category revert to restore a negative assigned total",
+              }),
           handler: async (argv, ctx) => {
             const args = argv as unknown as {
               id: string;
               format?: string;
               dryRun?: boolean;
               yes?: boolean;
+              allowOverAssigned?: boolean;
+              allowNegativeAssigned?: boolean;
             };
             const dryRun = Boolean(args.dryRun);
             requireApplyConfirmation(dryRun, Boolean(args.yes));
@@ -101,16 +114,25 @@ export const historyCommand = {
               budgetId: ctx.budgetId,
               history: action,
               dryRun,
+              allowOverAssigned: Boolean(args.allowOverAssigned),
+              allowNegativeAssigned: Boolean(args.allowNegativeAssigned),
             });
 
-            const appliedIds = outcome.appliedPatches.map((entry) => entry.id);
-            if (!dryRun && appliedIds.length > 0) {
+            if (!dryRun && outcome.appliedPatches.length > 0) {
+              const transactionIds = outcome.appliedPatches
+                .filter((entry) => (entry.resource ?? "transaction") === "transaction")
+                .map((entry) => entry.id);
               recordHistoryAction(
                 ctx.db,
                 "history.revert",
                 {
                   argv: normalizeArgv(argv as Record<string, unknown>),
-                  txIds: appliedIds,
+                  txIds: transactionIds,
+                  targets: outcome.appliedPatches.map((entry) => ({
+                    resource: entry.resource ?? "transaction",
+                    id: entry.id,
+                    ...(entry.month === undefined ? {} : { month: entry.month }),
+                  })),
                   patches: outcome.appliedPatches,
                   revertOf: action.id,
                   sourceActionType: action.actionType,
@@ -133,7 +155,7 @@ type HistoryRow = {
   id: string;
   createdAt: string;
   actionType: string;
-  txIds: string;
+  targets: string;
 };
 
 type RevertRow = {
@@ -141,6 +163,9 @@ type RevertRow = {
   status: string;
   patch: string;
   restoredId: string;
+  readyToAssignGuardMonth: string;
+  readyToAssignProjectedMilliunits: number | "";
+  wouldOverAssign: boolean | "";
 };
 
 type HistorySelector = { type: "id"; id: string } | { type: "index"; index: number };
@@ -162,7 +187,12 @@ function historyRows(actions: HistoryAction[]): HistoryRow[] {
     id: action.id,
     createdAt: action.createdAt,
     actionType: action.actionType,
-    txIds: action.payload.txIds?.join(",") ?? "",
+    targets:
+      action.payload.targets
+        ?.map((target) => [target.resource, target.month, target.id].filter(Boolean).join(":"))
+        .join(",") ??
+      action.payload.txIds?.join(",") ??
+      "",
   }));
 }
 
@@ -194,7 +224,7 @@ function writeHistoryList(
     columns: [
       fieldColumn("createdAt", { header: "Created" }),
       fieldColumn("actionType", { header: "Action" }),
-      fieldColumn("txIds", { header: "Tx Ids" }),
+      fieldColumn("targets", { header: "Targets" }),
       fieldColumn("id", { header: "Id" }),
     ],
     rows,
@@ -229,7 +259,7 @@ function writeHistoryDetail(
     columns: [
       fieldColumn("createdAt", { header: "Created" }),
       fieldColumn("actionType", { header: "Action" }),
-      fieldColumn("txIds", { header: "Tx Ids" }),
+      fieldColumn("targets", { header: "Targets" }),
       fieldColumn("id", { header: "Id" }),
     ],
     rows,
@@ -259,6 +289,10 @@ function writeRevertResults(
     status: result.status,
     patch: result.patch ? JSON.stringify(result.patch) : "",
     restoredId: result.restoredId ?? "",
+    readyToAssignGuardMonth: result.categoryAssignment?.readyToAssignGuardMonth ?? "",
+    readyToAssignProjectedMilliunits:
+      result.categoryAssignment?.readyToAssignProjectedMilliunits ?? "",
+    wouldOverAssign: result.categoryAssignment?.wouldOverAssign ?? "",
   }));
 
   if (format === "tsv") {
@@ -270,6 +304,14 @@ function writeRevertResults(
     columns: [
       fieldColumn("status", { header: "Status" }),
       fieldColumn("patch", { header: "Patch" }),
+      fieldColumn("readyToAssignGuardMonth", {
+        header: "RTA Guard Month",
+      }),
+      fieldColumn("readyToAssignProjectedMilliunits", {
+        header: "Projected RTA (milliunits)",
+        align: "right",
+      }),
+      fieldColumn("wouldOverAssign", { header: "Would Over-Assign" }),
       fieldColumn("restoredId", { header: "Restored Id" }),
       fieldColumn("id", { header: "Id" }),
     ],

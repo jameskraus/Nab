@@ -17,6 +17,7 @@ import {
   formatDate,
   parseOutputFormat,
 } from "@/io";
+import { budgetStatusCommand } from "./budgetStatus";
 
 type BudgetListRow = {
   id: string;
@@ -223,6 +224,7 @@ export const budgetCommand = {
           },
         }),
       )
+      .command(budgetStatusCommand)
       .command({
         command: "currency <command>",
         describe: "Manage budget currency format",

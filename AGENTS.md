@@ -12,7 +12,9 @@
 - Binary name: `nab`
 - Prefer **yargs** for argument parsing.
 - Avoid positional args as much as possible (max one positional per command).
-- Mutations must require explicit transaction IDs (no implicit selection/filter sets).
+- Mutations must require explicit target IDs (no implicit selection/filter sets).
+  - Transaction mutations require explicit transaction IDs.
+  - Month-category mutations require an explicit category ID and exact month.
 - All mutating commands must support:
   - `--dry-run` (no writes)
   - `--yes` (required to apply changes in non-interactive contexts)

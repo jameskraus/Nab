@@ -5,10 +5,15 @@ import type {
   BudgetSettingsResponse,
   BudgetSummaryResponse,
   CategoriesResponse,
+  CategoryResponse,
+  MonthDetailResponse,
+  MonthSummariesResponse,
+  PatchMonthCategoryWrapper,
   PatchTransactionsWrapper,
   PayeesResponse,
   PostTransactionsWrapper,
   PutTransactionWrapper,
+  SaveCategoryResponse,
   SaveTransactionsResponse,
   TransactionResponse,
   TransactionsResponse,
@@ -28,6 +33,26 @@ export type YnabSdk = {
   };
   categories: {
     getCategoriesRaw: (params: { budgetId: string }) => Promise<ApiResponse<CategoriesResponse>>;
+    getMonthCategoryByIdRaw: (params: {
+      budgetId: string;
+      month: string;
+      categoryId: string;
+    }) => Promise<ApiResponse<CategoryResponse>>;
+    updateMonthCategory: (
+      budgetId: string,
+      month: string,
+      categoryId: string,
+      data: PatchMonthCategoryWrapper,
+    ) => Promise<SaveCategoryResponse>;
+  };
+  months: {
+    getBudgetMonthsRaw: (params: {
+      budgetId: string;
+    }) => Promise<ApiResponse<MonthSummariesResponse>>;
+    getBudgetMonthRaw: (params: {
+      budgetId: string;
+      month: string;
+    }) => Promise<ApiResponse<MonthDetailResponse>>;
   };
   payees: {
     getPayeesRaw: (params: { budgetId: string }) => Promise<ApiResponse<PayeesResponse>>;
@@ -84,6 +109,10 @@ export class YnabSdkAdapter implements YnabSdk {
 
   get categories(): YnabSdk["categories"] {
     return this.api.categories;
+  }
+
+  get months(): YnabSdk["months"] {
+    return this.api.months;
   }
 
   get payees(): YnabSdk["payees"] {

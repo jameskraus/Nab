@@ -9,6 +9,8 @@ This document gives just enough context about YNAB and the YNAB API to build and
 - **Payee**: who you paid / who paid you.
 - **Category**: where spending is categorized (Groceries, Rent, ...). Categories are often nested into category groups.
 - **Transaction**: the core object we operate on in v1.
+- **Budget month**: one calendar month of income, assigned money, activity, Ready to Assign,
+  category balances, and target progress.
 
 ## YNAB API basics
 
@@ -48,6 +50,25 @@ Some transactions are transfers between two YNAB accounts; these have transfer m
 
 YNAB supports delta requests using `server_knowledge` and `last_knowledge_of_server` to efficiently fetch changes.
 
+### Assigned money and targets
+
+The YNAB API calls a category's assigned amount `budgeted`. `nab` uses the current product term
+**assigned** in commands and displays, while sending and receiving `budgeted` milliunits at the API
+boundary.
+
+For target health, `goal_under_funded` is the amount still needed in that category for the
+requested month. A category with zero assigned can still be healthy because available money rolled
+over from a prior month. `nab` therefore does not reconstruct target cadence from `goal_target` and
+does not flag zero assigned by itself.
+
+Ready to Assign is the API's `to_be_budgeted` month field. Increasing a category's assigned total
+reduces Ready to Assign by the same delta. When money is assigned into future months, the
+future-most month has the authoritative Ready to Assign value, so assignment safety must inspect
+the months list rather than only the edited month.
+
+Current API responses use `goal_target_date`; `goal_target_month` is deprecated. `nab` preserves
+the current field from raw GET responses and uses the older field only as a fallback.
+
 ### Rate limiting
 
 The API token is limited to 200 requests/hour (rolling window). Be careful in loops and batch calls.
@@ -60,16 +81,19 @@ Read-only:
 - List categories
 - List payees
 - List transactions (budget-wide or account-scoped)
+- Get a budget month and its month-specific categories
 
 Transaction list filters (server-side):
 - `since_date` (YYYY-MM-DD)
 - `type=uncategorized` or `type=unapproved`
 
-Mutations (transactions only, v1):
+Mutations:
 - Update a transaction (approve/unapprove, cleared status, category, memo, flag, date, payee, amount, account)
 - Delete a transaction
+- Set the absolute `budgeted`/assigned amount for one category in one exact month
 
-> Note: We intentionally leave budgets/payees/scheduled transactions out of scope for v1.
+Target creation/editing, scheduled-transaction funding inference, split editing, and automatic
+multi-category funding remain out of scope.
 
 ## Full Schema
 

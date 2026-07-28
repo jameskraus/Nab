@@ -7,16 +7,30 @@ import type { JsonValue } from "@/journal/argv";
 
 export type DeletePatch = { delete: true };
 export type RestorePatch = { restore: TransactionDetail };
+export type MonthCategoryPatch = { budgeted: number };
+export type HistoryResource = "transaction" | "month_category";
 
-export type HistoryForwardPatch = MutationPatch | NewTransaction;
-export type HistoryInversePatch = MutationInversePatch | DeletePatch;
+export type HistoryForwardPatch = MutationPatch | NewTransaction | MonthCategoryPatch;
+export type HistoryInversePatch = MutationInversePatch | DeletePatch | MonthCategoryPatch;
 
-export type HistoryPatchEntry<Patch> = { id: string; patch: Patch };
+export type HistoryPatchEntry<Patch> = {
+  id: string;
+  patch: Patch;
+  resource?: HistoryResource;
+  month?: string;
+};
 export type HistoryPatchList<Patch> = Array<HistoryPatchEntry<Patch>>;
+
+export type HistoryTarget = {
+  resource: HistoryResource;
+  id: string;
+  month?: string;
+};
 
 export type HistoryActionPayload = {
   argv: Record<string, JsonValue>;
-  txIds: string[];
+  txIds?: string[];
+  targets?: HistoryTarget[];
   patches?: HistoryPatchList<HistoryForwardPatch>;
   revertOf?: string;
   restored?: Array<{ originalId: string; newId: string }>;

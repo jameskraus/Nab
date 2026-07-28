@@ -14,6 +14,10 @@ Example list filters:
 - `bunx @jameskraus/nab tx list --only-unapproved --format json`
 - `bunx @jameskraus/nab tx list --exclude-transfers --format json`
 
+Agent-oriented attention queues:
+- `bunx @jameskraus/nab review transactions --since-date 2026-07-01 --account-name-prefix "J " --limit 5 --format json`
+- `bunx @jameskraus/nab budget status --month current --format json`
+
 ## Quick start
 
 Requires Bun (https://bun.sh). Use `bunx @jameskraus/nab`.
@@ -50,17 +54,52 @@ bunx @jameskraus/nab review mislinked-transfers --format table
 bunx @jameskraus/nab fix mislinked-transfer --anchor <ref|id> --phantom <ref|id> --orphan <ref|id> --dry-run
 ```
 
-## Review summary
+## Transaction review
 
-Get a high-level review of overspending, uncategorized transactions, and unapproved transactions.
+Get one deduplicated queue of unapproved or uncategorized transactions. Counts are calculated
+before `--limit`, transactions carry one or both issue codes, and transfers/splits are identified
+so an agent can handle them safely.
 
 ```bash
-# Overspent categories + uncategorized/unapproved transactions
-bunx @jameskraus/nab review summary --format table
-
-# Customize transaction window (default: last 30 days)
-bunx @jameskraus/nab review summary --since-date 2026-01-01 --format json
+bunx @jameskraus/nab review transactions \
+  --since-date 2026-07-01 \
+  --account-name-prefix "J " \
+  --limit 5 \
+  --format json
 ```
+
+`--since-date` is required, so an agent never relies on a hidden review window.
+
+## Budget health and assignment
+
+Show Ready to Assign plus categories that are overspent or behind a native YNAB target:
+
+```bash
+bunx @jameskraus/nab budget status --month current --format table
+```
+
+Set one category's absolute assigned total. Always dry-run first, then apply with the exact
+current value as a compare-before-write guard:
+
+```bash
+bunx @jameskraus/nab category set-assigned \
+  --id <CATEGORY_ID> \
+  --month 2026-07-01 \
+  --amount 250.00 \
+  --dry-run
+
+bunx @jameskraus/nab category set-assigned \
+  --id <CATEGORY_ID> \
+  --month 2026-07-01 \
+  --amount 250.00 \
+  --expected-current 100.00 \
+  --yes
+```
+
+Applied assignments are verified against YNAB and recorded in local history. By default, `nab`
+rejects negative assigned totals and changes that would make Ready to Assign negative in the
+future-most funded month. If a write response is interrupted, `nab` reads the category back before
+deciding whether the change failed or must be journaled as applied.
 
 ## OAuth (optional)
 

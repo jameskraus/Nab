@@ -52,6 +52,7 @@ Read-only commands never mutate YNAB data and are safe for agents.
 Budgets:
 - `bunx @jameskraus/nab budget list [--format table|json|tsv|ids]`
 - `bunx @jameskraus/nab budget current [--format table|json|tsv|ids]`
+- `bunx @jameskraus/nab budget status [--month current|YYYY-MM-01] [--all] [--format ...]`
 - `bunx @jameskraus/nab budget set-default --id <budget-id>` (local-only)
 
 Accounts:
@@ -71,9 +72,16 @@ Transactions:
 
 Reviews:
 - `bunx @jameskraus/nab review mislinked-transfers [--since-date YYYY-MM-DD] [--import-lag-days N] [--format ...]`
-- `bunx @jameskraus/nab review summary [--since-date YYYY-MM-DD] [--format ...]`
+- `bunx @jameskraus/nab review transactions --since-date YYYY-MM-DD [--account-name-prefix <prefix>] [--limit N] [--format ...]`
 
 Notes:
+- Transaction review performs the two supported server-side queries in one process, unions them by transaction id, and reports overlapping issue counts.
+- `--since-date` is required for transaction review; there is no implicit review window.
+- `--account-name-prefix` is repeatable and preserves significant spaces.
+- `review transactions --format ids` emits transaction ids only. `budget status --format ids` emits category ids only.
+- `budget status` uses the resolved YNAB month and `goal_under_funded` for native target shortfalls.
+- A zero assigned amount is not an issue by itself because rollover money can satisfy a target.
+- Internal categories are suppressed from the default attention queue and appear only with `--all`.
 - `--only-uncategorized` and `--only-unapproved` are mutually exclusive.
 - `--only-transfers` and `--exclude-transfers` are mutually exclusive.
 - `--uncategorized` and `--unapproved` are deprecated aliases.
@@ -96,7 +104,7 @@ Examples:
 ## Mutations
 
 All mutating commands must:
-- require explicit `--id` selection (no implicit filters)
+- require an explicit target id (no implicit filters)
 - `--id` and `--ref` are mutually exclusive when both are available
 - support `--dry-run` (preview)
 - require `--yes` to apply in non-interactive contexts
@@ -104,6 +112,16 @@ All mutating commands must:
 
 History reverts:
 - `bunx @jameskraus/nab history revert --id <history-id> [--format ...] [--dry-run] [--yes]`
+
+Category assignment:
+- `bunx @jameskraus/nab category set-assigned --id <category-id> --month YYYY-MM-01 --amount <absolute-total> --dry-run`
+- Applying requires `--expected-current <absolute-total>` and `--yes` in non-interactive contexts.
+- The operation is absolute and idempotent, verifies the persisted value, and is journaled as a month-category resource.
+- Negative assigned totals and projected negative Ready to Assign require separate explicit override flags.
+- The Ready-to-Assign guard uses the future-most month returned by YNAB, not just the edited month.
+- JSON identifies the guard month and whether the post-write Ready-to-Assign refresh was verified.
+- A write that returns an error is read back before retry is considered safe; if YNAB applied it,
+  the result is marked reconciled and journaled.
 
 Fixes:
 - `bunx @jameskraus/nab fix mislinked-transfer --anchor <id|ref> --phantom <id|ref> --orphan <id|ref> [--import-lag-days N] [--format ...] [--dry-run] [--yes]`

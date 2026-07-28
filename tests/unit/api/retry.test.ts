@@ -8,6 +8,7 @@ type ApiOverrides = {
   budgets?: Partial<YnabSdk["budgets"]>;
   accounts?: Partial<YnabSdk["accounts"]>;
   categories?: Partial<YnabSdk["categories"]>;
+  months?: Partial<YnabSdk["months"]>;
   payees?: Partial<YnabSdk["payees"]>;
   transactions?: Partial<YnabSdk["transactions"]>;
 };
@@ -32,7 +33,22 @@ const stubSdk = (overrides: ApiOverrides): YnabSdk => ({
     getCategoriesRaw: async () => {
       throw new Error("Not implemented");
     },
+    getMonthCategoryByIdRaw: async () => {
+      throw new Error("Not implemented");
+    },
+    updateMonthCategory: async () => {
+      throw new Error("Not implemented");
+    },
     ...overrides.categories,
+  },
+  months: {
+    getBudgetMonthsRaw: async () => {
+      throw new Error("Not implemented");
+    },
+    getBudgetMonthRaw: async () => {
+      throw new Error("Not implemented");
+    },
+    ...overrides.months,
   },
   payees: {
     getPayeesRaw: async () => {

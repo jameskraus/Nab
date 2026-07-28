@@ -3,7 +3,10 @@ import type {
   Account,
   BudgetSettings,
   BudgetSummary,
+  Category,
   CategoryGroupWithCategories,
+  MonthDetail,
+  MonthSummary,
   NewTransaction,
   Payee,
   SaveTransactionWithIdOrImportId,
@@ -18,7 +21,10 @@ class MemoryClient implements YnabApiClient {
   private nextId = 1;
   private readonly transactions = new Map<string, TransactionDetail>();
 
-  constructor(seed: TransactionDetail[] = []) {
+  constructor(
+    seed: TransactionDetail[] = [],
+    private readonly budgetMonth?: MonthDetail,
+  ) {
     for (const tx of seed) {
       this.transactions.set(tx.id, tx);
     }
@@ -42,6 +48,38 @@ class MemoryClient implements YnabApiClient {
 
   async listCategories(_budgetId: string): Promise<CategoryGroupWithCategories[]> {
     throw new Error("Not implemented");
+  }
+
+  async getBudgetMonth(): Promise<MonthDetail> {
+    if (!this.budgetMonth) throw new Error("Not implemented");
+    return structuredClone(this.budgetMonth);
+  }
+
+  async listBudgetMonths(): Promise<MonthSummary[]> {
+    if (!this.budgetMonth) throw new Error("Not implemented");
+    const { categories: _categories, ...summary } = this.budgetMonth;
+    return [structuredClone(summary)];
+  }
+
+  async getMonthCategory(_budgetId: string, _month: string, categoryId: string): Promise<Category> {
+    const category = this.budgetMonth?.categories.find((candidate) => candidate.id === categoryId);
+    if (!category) throw new Error("Not implemented");
+    return structuredClone(category);
+  }
+
+  async updateMonthCategory(
+    _budgetId: string,
+    _month: string,
+    categoryId: string,
+    budgetedMilliunits: number,
+  ): Promise<Category> {
+    const category = this.budgetMonth?.categories.find((candidate) => candidate.id === categoryId);
+    if (!category || !this.budgetMonth) throw new Error("Not implemented");
+    const delta = budgetedMilliunits - category.budgeted;
+    category.budgeted = budgetedMilliunits;
+    this.budgetMonth.budgeted += delta;
+    this.budgetMonth.to_be_budgeted -= delta;
+    return structuredClone(category);
   }
 
   async listPayees(_budgetId: string): Promise<Payee[]> {
@@ -204,4 +242,153 @@ test("revertHistoryAction restores deleted transaction", async () => {
   expect(result?.restoredId).toBe("new-1");
   expect(outcome.inversePatches).toEqual([{ id: "new-1", patch: { delete: true } }]);
   expect(client.getTransactionById("new-1")?.memo).toBe("deleted");
+});
+
+test("revertHistoryAction restores a month-category assigned amount", async () => {
+  const category = {
+    id: "category-1",
+    category_group_id: "group-1",
+    name: "Rent",
+    hidden: false,
+    budgeted: 200_000,
+    activity: 0,
+    balance: 200_000,
+    deleted: false,
+  } as Category;
+  const month = {
+    month: "2026-07-01",
+    income: 1_000_000,
+    budgeted: 900_000,
+    activity: 0,
+    to_be_budgeted: 100_000,
+    deleted: false,
+    categories: [category],
+  } as MonthDetail;
+  const client = new MemoryClient([], month);
+  const history: HistoryAction = {
+    id: "h-category",
+    createdAt: "2026-07-01T00:00:00Z",
+    actionType: "category.assigned.set",
+    payload: {
+      argv: {},
+      targets: [
+        {
+          resource: "month_category",
+          id: "category-1",
+          month: "2026-07-01",
+        },
+      ],
+      patches: [
+        {
+          resource: "month_category",
+          id: "category-1",
+          month: "2026-07-01",
+          patch: { budgeted: 200_000 },
+        },
+      ],
+    },
+    inversePatch: [
+      {
+        resource: "month_category",
+        id: "category-1",
+        month: "2026-07-01",
+        patch: { budgeted: 100_000 },
+      },
+    ],
+  };
+
+  const outcome = await revertHistoryAction({
+    ynab: client,
+    budgetId: "budget",
+    history,
+  });
+
+  expect((await client.getMonthCategory("budget", "2026-07-01", "category-1")).budgeted).toBe(
+    100_000,
+  );
+  expect(outcome.results[0]).toMatchObject({
+    id: "category-1",
+    status: "updated",
+    patch: { budgeted: 100_000 },
+    resource: "month_category",
+    month: "2026-07-01",
+    categoryAssignment: {
+      readyToAssignGuardMonth: "2026-07-01",
+      readyToAssignProjectedMilliunits: 200_000,
+      wouldOverAssign: false,
+    },
+  });
+  expect(outcome.inversePatches).toEqual([
+    {
+      id: "category-1",
+      resource: "month_category",
+      month: "2026-07-01",
+      patch: { budgeted: 200_000 },
+    },
+  ]);
+});
+
+test("month-category revert dry-run exposes a future Ready to Assign warning", async () => {
+  const category = {
+    id: "category-1",
+    category_group_id: "group-1",
+    name: "Rent",
+    hidden: false,
+    budgeted: 100_000,
+    activity: 0,
+    balance: 100_000,
+    deleted: false,
+  } as Category;
+  const month = {
+    month: "2026-07-01",
+    income: 1_000_000,
+    budgeted: 950_000,
+    activity: 0,
+    to_be_budgeted: 50_000,
+    deleted: false,
+    categories: [category],
+  } as MonthDetail;
+  const history: HistoryAction = {
+    id: "h-category-preview",
+    createdAt: "2026-07-01T00:00:00Z",
+    actionType: "category.assigned.set",
+    payload: {
+      argv: {},
+      targets: [{ resource: "month_category", id: "category-1", month: "2026-07-01" }],
+      patches: [
+        {
+          resource: "month_category",
+          id: "category-1",
+          month: "2026-07-01",
+          patch: { budgeted: 100_000 },
+        },
+      ],
+    },
+    inversePatch: [
+      {
+        resource: "month_category",
+        id: "category-1",
+        month: "2026-07-01",
+        patch: { budgeted: 200_000 },
+      },
+    ],
+  };
+
+  const outcome = await revertHistoryAction({
+    ynab: new MemoryClient([], month),
+    budgetId: "budget",
+    history,
+    dryRun: true,
+  });
+
+  expect(outcome.results[0]).toMatchObject({
+    status: "dry-run",
+    categoryAssignment: {
+      readyToAssignGuardMonth: "2026-07-01",
+      readyToAssignProjectedMilliunits: -50_000,
+      wouldOverAssign: true,
+      verified: false,
+    },
+  });
+  expect(outcome.appliedPatches).toEqual([]);
 });

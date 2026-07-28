@@ -1,6 +1,10 @@
 import type { NewTransaction, TransactionDetail } from "ynab";
 
 import type { TransactionPatch, YnabApiClient } from "@/api/YnabClient";
+import {
+  type CategoryAssignmentResult,
+  CategoryBudgetService,
+} from "@/domain/CategoryBudgetService";
 import { TransactionService } from "@/domain/TransactionService";
 import type { TransactionMutationStatus } from "@/domain/TransactionService";
 import type {
@@ -10,6 +14,8 @@ import type {
   HistoryInversePatch,
   HistoryPatchEntry,
   HistoryPatchList,
+  HistoryResource,
+  MonthCategoryPatch,
   RestorePatch,
 } from "@/journal/history";
 
@@ -18,6 +24,9 @@ export type RevertResult = {
   status: TransactionMutationStatus;
   patch?: HistoryInversePatch;
   restoredId?: string;
+  resource?: HistoryResource;
+  month?: string;
+  categoryAssignment?: CategoryAssignmentResult;
 };
 
 export type RevertOutcome = {
@@ -46,7 +55,20 @@ function parsePatchEntries<Patch>(value: unknown, label: string): HistoryPatchLi
     if (typeof id !== "string" || id.trim().length === 0) {
       throw new Error(`Invalid ${label} patch entry id.`);
     }
-    entries.push({ id, patch: item.patch as Patch });
+    const resource = item.resource;
+    if (resource !== undefined && resource !== "transaction" && resource !== "month_category") {
+      throw new Error(`Invalid ${label} patch resource.`);
+    }
+    const month = item.month;
+    if (month !== undefined && typeof month !== "string") {
+      throw new Error(`Invalid ${label} patch month.`);
+    }
+    entries.push({
+      id,
+      patch: item.patch as Patch,
+      ...(resource === undefined ? {} : { resource }),
+      ...(month === undefined ? {} : { month }),
+    });
   }
   return entries;
 }
@@ -61,6 +83,16 @@ function isDeletePatch(patch: unknown): patch is DeletePatch {
 
 function isTransactionPatchLike(patch: unknown): patch is TransactionPatch {
   return isRecord(patch);
+}
+
+function isMonthCategoryPatch(patch: unknown): patch is MonthCategoryPatch {
+  return (
+    isRecord(patch) && typeof patch.budgeted === "number" && Number.isSafeInteger(patch.budgeted)
+  );
+}
+
+function patchKey(entry: Pick<HistoryPatchEntry<unknown>, "id" | "resource" | "month">): string {
+  return `${entry.resource ?? "transaction"}:${entry.month ?? ""}:${entry.id}`;
 }
 
 function assertRestorable(detail: TransactionDetail): void {
@@ -97,8 +129,10 @@ export async function revertHistoryAction(options: {
   budgetId: string;
   history: HistoryAction;
   dryRun?: boolean;
+  allowOverAssigned?: boolean;
+  allowNegativeAssigned?: boolean;
 }): Promise<RevertOutcome> {
-  const { ynab, budgetId, history, dryRun } = options;
+  const { ynab, budgetId, history, dryRun, allowOverAssigned, allowNegativeAssigned } = options;
   const inverseEntries = parsePatchEntries<HistoryInversePatch>(history.inversePatch, "inverse");
   if (inverseEntries.length === 0) {
     throw new Error("History action does not include an inverse patch.");
@@ -110,10 +144,11 @@ export async function revertHistoryAction(options: {
   );
   const forwardMap = new Map<string, HistoryForwardPatch>();
   for (const entry of forwardEntries) {
-    forwardMap.set(entry.id, entry.patch);
+    forwardMap.set(patchKey(entry), entry.patch);
   }
 
   const service = new TransactionService(ynab, budgetId);
+  const categoryBudgetService = new CategoryBudgetService(ynab, budgetId);
   const results: RevertResult[] = [];
   const appliedPatches: HistoryPatchList<HistoryForwardPatch> = [];
   const inversePatches: HistoryPatchList<HistoryInversePatch> = [];
@@ -121,6 +156,53 @@ export async function revertHistoryAction(options: {
 
   for (const entry of inverseEntries) {
     const patch = entry.patch;
+
+    if (entry.resource === "month_category") {
+      if (!entry.month) {
+        throw new Error("Month-category inverse patch is missing its month.");
+      }
+      if (!isMonthCategoryPatch(patch)) {
+        throw new Error("Month-category inverse patch is invalid.");
+      }
+      const forwardPatch = forwardMap.get(patchKey(entry));
+      if (!isMonthCategoryPatch(forwardPatch)) {
+        throw new Error("Month-category history is missing a valid forward patch.");
+      }
+      const result = await categoryBudgetService.setAssigned(
+        entry.id,
+        entry.month,
+        patch.budgeted,
+        {
+          dryRun,
+          expectedCurrentMilliunits: forwardPatch.budgeted,
+          allowOverAssigned,
+          allowNegativeAssigned,
+        },
+      );
+      results.push({
+        id: entry.id,
+        status: result.status,
+        patch,
+        resource: "month_category",
+        month: result.month,
+        categoryAssignment: result,
+      });
+      if (result.status === "updated") {
+        appliedPatches.push({
+          id: entry.id,
+          resource: "month_category",
+          month: result.month,
+          patch,
+        });
+        inversePatches.push({
+          id: entry.id,
+          resource: "month_category",
+          month: result.month,
+          patch: forwardPatch,
+        });
+      }
+      continue;
+    }
 
     if (isRestorePatch(patch)) {
       const detail = patch.restore as TransactionDetail;
@@ -171,7 +253,9 @@ export async function revertHistoryAction(options: {
       if (result.patch) {
         appliedPatches.push({ id: result.id, patch: result.patch });
       }
-      const forwardPatch = forwardMap.get(result.id);
+      const forwardPatch = forwardMap.get(
+        patchKey({ id: result.id, resource: entry.resource, month: entry.month }),
+      );
       if (forwardPatch !== undefined) {
         inversePatches.push({ id: result.id, patch: forwardPatch as HistoryInversePatch });
       }

@@ -2,7 +2,10 @@ import type {
   Account,
   BudgetSettings,
   BudgetSummary,
+  Category,
   CategoryGroupWithCategories,
+  MonthDetail,
+  MonthSummary,
   NewTransaction,
   Payee,
   SaveTransactionWithIdOrImportId,
@@ -181,6 +184,29 @@ export class YnabClient implements YnabApiClient {
 
   async listCategories(budgetId: string): Promise<CategoryGroupWithCategories[]> {
     return this.execute((client) => client.listCategories(budgetId));
+  }
+
+  async getBudgetMonth(budgetId: string, month: string): Promise<MonthDetail> {
+    return this.execute((client) => client.getBudgetMonth(budgetId, month));
+  }
+
+  async listBudgetMonths(budgetId: string): Promise<MonthSummary[]> {
+    return this.execute((client) => client.listBudgetMonths(budgetId));
+  }
+
+  async getMonthCategory(budgetId: string, month: string, categoryId: string): Promise<Category> {
+    return this.execute((client) => client.getMonthCategory(budgetId, month, categoryId));
+  }
+
+  async updateMonthCategory(
+    budgetId: string,
+    month: string,
+    categoryId: string,
+    budgetedMilliunits: number,
+  ): Promise<Category> {
+    return this.execute((client) =>
+      client.updateMonthCategory(budgetId, month, categoryId, budgetedMilliunits),
+    );
   }
 
   async listPayees(budgetId: string): Promise<Payee[]> {

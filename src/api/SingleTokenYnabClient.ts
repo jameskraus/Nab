@@ -6,7 +6,13 @@ import type {
   BudgetSettings,
   BudgetSettingsResponse,
   BudgetSummary,
+  Category,
   CategoryGroupWithCategories,
+  CategoryResponse,
+  MonthDetail,
+  MonthDetailResponse,
+  MonthSummariesResponse,
+  MonthSummary,
   NewTransaction,
   Payee,
   PayeesResponse,
@@ -54,6 +60,15 @@ export interface YnabApiClient {
   getBudgetSettings(budgetId: string): Promise<BudgetSettings>;
   listAccounts(budgetId: string): Promise<Account[]>;
   listCategories(budgetId: string): Promise<CategoryGroupWithCategories[]>;
+  listBudgetMonths(budgetId: string): Promise<MonthSummary[]>;
+  getBudgetMonth(budgetId: string, month: string): Promise<MonthDetail>;
+  getMonthCategory(budgetId: string, month: string, categoryId: string): Promise<Category>;
+  updateMonthCategory(
+    budgetId: string,
+    month: string,
+    categoryId: string,
+    budgetedMilliunits: number,
+  ): Promise<Category>;
   listPayees(budgetId: string): Promise<Payee[]>;
   listTransactions(
     budgetId: string,
@@ -145,7 +160,7 @@ export class SingleTokenYnabClient implements YnabApiClient {
   private async executeRaw<T>(fn: () => Promise<ApiResponse<T>>): Promise<T> {
     return this.execute(async () => {
       const response = await fn();
-      return response.value();
+      return (await response.raw.json()) as T;
     });
   }
 
@@ -273,6 +288,76 @@ export class SingleTokenYnabClient implements YnabApiClient {
         groupCount: groups.length,
         categoryCount: groups.reduce((count, group) => count + group.categories.length, 0),
       }),
+    );
+  }
+
+  async getBudgetMonth(budgetId: string, month: string): Promise<MonthDetail> {
+    const meta = { budgetId, month, retryCount: 0 };
+    return this.traced(
+      "getBudgetMonth",
+      async () => {
+        const response = await this.executeGet<MonthDetailResponse>(
+          () => this.api.months.getBudgetMonthRaw({ budgetId, month }),
+          meta,
+        );
+        return response.data.month;
+      },
+      meta,
+      (budgetMonth) => ({ categoryCount: budgetMonth.categories.length }),
+    );
+  }
+
+  async listBudgetMonths(budgetId: string): Promise<MonthSummary[]> {
+    const meta = { budgetId, retryCount: 0 };
+    return this.traced(
+      "listBudgetMonths",
+      async () => {
+        const response = await this.executeGet<MonthSummariesResponse>(
+          () => this.api.months.getBudgetMonthsRaw({ budgetId }),
+          meta,
+        );
+        return response.data.months;
+      },
+      meta,
+      (months) => ({ count: months.length }),
+    );
+  }
+
+  async getMonthCategory(budgetId: string, month: string, categoryId: string): Promise<Category> {
+    const meta = { budgetId, month, categoryId, retryCount: 0 };
+    return this.traced(
+      "getMonthCategory",
+      async () => {
+        const response = await this.executeGet<CategoryResponse>(
+          () => this.api.categories.getMonthCategoryByIdRaw({ budgetId, month, categoryId }),
+          meta,
+        );
+        return response.data.category;
+      },
+      meta,
+      () => ({ found: true }),
+    );
+  }
+
+  async updateMonthCategory(
+    budgetId: string,
+    month: string,
+    categoryId: string,
+    budgetedMilliunits: number,
+  ): Promise<Category> {
+    const meta = { budgetId, month, categoryId, budgetedMilliunits };
+    return this.traced(
+      "updateMonthCategory",
+      async () => {
+        const response = await this.execute(() =>
+          this.api.categories.updateMonthCategory(budgetId, month, categoryId, {
+            category: { budgeted: budgetedMilliunits },
+          }),
+        );
+        return response.data.category;
+      },
+      meta,
+      (updated) => ({ id: updated.id, budgeted: updated.budgeted }),
     );
   }
 

@@ -25,6 +25,22 @@ class StubClient implements YnabApiClient {
     throw new Error("not implemented");
   }
 
+  async getBudgetMonth(): Promise<never> {
+    throw new Error("not implemented");
+  }
+
+  async listBudgetMonths(): Promise<never> {
+    throw new Error("not implemented");
+  }
+
+  async getMonthCategory(): Promise<never> {
+    throw new Error("not implemented");
+  }
+
+  async updateMonthCategory(): Promise<never> {
+    throw new Error("not implemented");
+  }
+
   async listPayees(): Promise<never> {
     throw new Error("not implemented");
   }

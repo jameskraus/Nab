@@ -11,6 +11,7 @@ import {
   formatCurrency,
   parseOutputFormat,
 } from "@/io";
+import { categoryAssignedCommand } from "./categoryAssigned";
 
 type CategoryListRow = {
   id: string;
@@ -124,6 +125,7 @@ export const categoryCommand = {
           },
         }),
       )
+      .command(categoryAssignedCommand)
       .demandCommand(1, "Specify a category subcommand")
       .strict(),
   handler: () => {},

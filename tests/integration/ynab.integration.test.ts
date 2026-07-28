@@ -8,6 +8,7 @@ import type {
 } from "ynab";
 
 import { YnabClient } from "@/api/YnabClient";
+import { CategoryBudgetService } from "@/domain/CategoryBudgetService";
 import { TransactionService } from "@/domain/TransactionService";
 
 import { cleanupTestTransactions } from "../helpers/testCleanup";
@@ -119,6 +120,43 @@ if (!token || !budgetId) {
     const groups = await client.listCategories(budgetId);
     expect(Array.isArray(groups)).toBe(true);
     expect(groups.length).toBeGreaterThan(0);
+  });
+
+  test("integration: read current budget month", async () => {
+    const months = await client.listBudgetMonths(budgetId);
+    const month = await client.getBudgetMonth(budgetId, "current");
+    expect(months.some((candidate) => candidate.month === month.month)).toBe(true);
+    expect(month.month).toMatch(/^\d{4}-\d{2}-01$/);
+    expect(Array.isArray(month.categories)).toBe(true);
+    expect(Number.isSafeInteger(month.to_be_budgeted)).toBe(true);
+  });
+
+  test("integration: assigned amount mutation applies, verifies, and restores", async () => {
+    const month = await client.getBudgetMonth(budgetId, "current");
+    const category = month.categories.find(
+      (candidate) => !candidate.deleted && !candidate.hidden && candidate.budgeted >= 1000,
+    );
+    if (!category) return;
+
+    const originalAssigned = category.budgeted;
+    const testAssigned = originalAssigned - 1000;
+    const service = new CategoryBudgetService(client, budgetId);
+
+    try {
+      const result = await service.setAssigned(category.id, month.month, testAssigned, {
+        expectedCurrentMilliunits: originalAssigned,
+      });
+      expect(result.status).toBe("updated");
+      expect(result.verified).toBe(true);
+
+      const updated = await client.getMonthCategory(budgetId, month.month, category.id);
+      expect(updated.budgeted).toBe(testAssigned);
+    } finally {
+      await client.updateMonthCategory(budgetId, month.month, category.id, originalAssigned);
+    }
+
+    const restored = await client.getMonthCategory(budgetId, month.month, category.id);
+    expect(restored.budgeted).toBe(originalAssigned);
   });
 
   test("integration: list payees returns payees", async () => {
