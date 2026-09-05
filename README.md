@@ -70,6 +70,56 @@ bunx @jameskraus/nab review transactions \
 
 `--since-date` is required, so an agent never relies on a hidden review window.
 
+## Batch transaction updates
+
+Use `nab tx apply --file changes.json` to combine different category, memo, and approval changes
+for multiple regular transactions. In a local checkout, build with `bun run build` and use
+`./dist/nab`.
+
+```json
+{
+  "transactions": [
+    {
+      "id": "10000000-0000-4000-8000-000000000001",
+      "category_name": "Groceries",
+      "memo": "Weekly shop",
+      "approved": true
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000002",
+      "approved": true
+    }
+  ]
+}
+```
+
+Replace the example IDs with the exact transaction UUIDs you reviewed, then run:
+
+```bash
+nab tx apply --file changes.json --dry-run --format json
+nab tx apply --file changes.json --yes --format json
+```
+
+- Each row needs a unique UUID and at least one supported field. Use either `category_id` (UUID
+  or `null`) or an unambiguous `category_name`. Omitted fields stay unchanged.
+- `memo` accepts up to 500 characters; `null` or `""` clears it. `approved` accepts `true` or `false`.
+  The CLI does not automatically approve categorization; include `approved: true` when authorized.
+- Transfers, splits, deleted transactions, duplicate IDs, and unknown fields are rejected before
+  any write. This command does not change payees, dates, amounts, accounts, or budget assignments.
+- Nab reads each target once, resolves all category names with one category lookup if needed,
+  skips no-ops, and sends one bulk update for the remaining rows.
+- JSON results stay in input order. `transaction` is the actual YNAB response for an updated row,
+  or the freshly read current state for a no-op/dry-run. Its amounts use YNAB milliunits.
+- An incomplete or interrupted response causes readback only for uncertain IDs, without replaying
+  the write. Any still `unverified` row causes a nonzero exit with per-ID results. Inspect those
+  results before retrying; a batch may be partly applied.
+
+Successful batches create one history action with per-ID inverse patches. If verification fails,
+confirmed rows remain reversible and unverified rows are stored separately for inspection.
+`history revert` only reverts confirmed rows; it cannot automatically undo unverified rows.
+No-op and dry-run batches add no history action. Use `history list --format json` to find an action,
+then `history revert --id <ACTION_ID> --dry-run` or `--yes`.
+
 ## Budget health and assignment
 
 Show Ready to Assign plus categories that are overspent or behind a native YNAB target:

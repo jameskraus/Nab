@@ -1,10 +1,12 @@
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
 import { beforeAll, expect, test } from "bun:test";
 
 import { YnabClient } from "@/api/YnabClient";
+import type { TransactionMutationResult } from "@/domain/TransactionService";
+import type { HistoryAction } from "@/journal/history";
 
 import { cleanupTestTransactions } from "../helpers/testCleanup";
 import { loadTestEnv } from "../helpers/testEnv";
@@ -664,6 +666,105 @@ if (!token || !budgetId) {
       await runCli(["tx", "delete", "--id", id, "--yes", "--format", "json"], baseEnv);
     }
   });
+
+  test("e2e: tx apply batches distinct edits, persists results, skips repeats, and reverts", async () => {
+    const accountId = await getWritableAccountId(baseEnv);
+    if (!accountId) throw new Error("Test budget requires an open account");
+    const category = findUniqueCategory(await getCategories(baseEnv));
+    if (!category) throw new Error("Test budget requires an unambiguous category");
+    const configDir = await mkdtemp(path.join(os.tmpdir(), "nab-e2e-apply-"));
+    const env = {
+      ...baseEnv,
+      NAB_CONFIG_DIR: configDir,
+      NAB_LOG_DIR: path.join(configDir, "logs"),
+    };
+    const created: string[] = [];
+    try {
+      const first = await client.createTransaction(budgetId, {
+        account_id: accountId,
+        date: todayDate(),
+        amount: -1000,
+        memo: "__nab_e2e_apply_first__",
+        approved: false,
+      });
+      created.push(first.id);
+      const second = await client.createTransaction(budgetId, {
+        account_id: accountId,
+        date: todayDate(),
+        amount: -2000,
+        memo: "__nab_e2e_apply_second__",
+        approved: true,
+      });
+      created.push(second.id);
+      const file = path.join(configDir, "changes.json");
+      await Bun.write(
+        file,
+        JSON.stringify({
+          transactions: [
+            {
+              id: first.id,
+              category_name: category.name,
+              memo: "__nab_e2e_apply_saved__",
+              approved: true,
+            },
+            { id: second.id, memo: null, approved: false },
+          ],
+        }),
+      );
+      const args = ["tx", "apply", "--file", file, "--format", "json"];
+      const refused = await runCli(args, env);
+      expect(refused.exitCode).toBe(1);
+      const preview = await runCli([...args, "--dry-run"], env);
+      expect(preview.exitCode).toBe(0);
+      expect(
+        (JSON.parse(preview.stdout) as TransactionMutationResult[]).map((row) => row.status),
+      ).toEqual(["dry-run", "dry-run"]);
+      expect((await client.getTransaction(budgetId, first.id)).memo).toBe(first.memo);
+      expect(
+        JSON.parse((await runCli(["history", "list", "--format", "json"], env)).stdout),
+      ).toEqual([]);
+
+      const applied = await runCli([...args, "--yes"], env);
+      expect(applied.exitCode).toBe(0);
+      const results = JSON.parse(applied.stdout) as TransactionMutationResult[];
+      expect(results.map((row) => row.status)).toEqual(["updated", "updated"]);
+      expect(results.map((row) => row.id)).toEqual(created);
+      expect(results[0]?.transaction?.category_id).toBe(category.id);
+      expect(results[0]?.transaction?.amount).toBe(-1000);
+      expect(results[1]?.transaction?.memo).toBeNull();
+      expect(results[1]?.transaction?.approved).toBe(false);
+      const observed = await client.getTransaction(budgetId, first.id);
+      expect(observed.memo).toBe("__nab_e2e_apply_saved__");
+      expect(observed.category_id).toBe(category.id);
+      expect(observed.approved).toBe(true);
+
+      const repeated = await runCli([...args, "--yes"], env);
+      expect(repeated.exitCode).toBe(0);
+      expect(
+        (JSON.parse(repeated.stdout) as TransactionMutationResult[]).map((row) => row.status),
+      ).toEqual(["noop", "noop"]);
+      const history = JSON.parse(
+        (await runCli(["history", "list", "--format", "json"], env)).stdout,
+      ) as HistoryAction[];
+      expect(history).toHaveLength(1);
+      expect(history[0]?.actionType).toBe("tx.apply");
+      expect(history[0]?.inversePatch).toHaveLength(2);
+      const reverted = await runCli(
+        ["history", "revert", "--id", history[0]?.id as string, "--yes", "--format", "json"],
+        env,
+      );
+      expect(reverted.exitCode).toBe(0);
+      for (const original of [first, second]) {
+        const current = await client.getTransaction(budgetId, original.id);
+        expect(current.memo).toBe(original.memo);
+        expect(current.category_id).toBe(original.category_id ?? null);
+        expect(current.approved).toBe(original.approved);
+      }
+    } finally {
+      for (const id of created) await client.deleteTransaction(budgetId, id);
+      await rm(configDir, { recursive: true, force: true });
+    }
+  }, 60_000);
 
   test("e2e: tx memo set rejects empty ids", async () => {
     const result = await runCli(

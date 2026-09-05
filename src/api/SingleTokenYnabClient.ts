@@ -494,8 +494,8 @@ export class SingleTokenYnabClient implements YnabApiClient {
     return this.traced(
       "updateTransactions",
       async () => {
-        const response = await this.execute(() =>
-          this.api.transactions.updateTransactions(budgetId, { transactions }),
+        const response = await this.executeRaw(() =>
+          this.api.transactions.updateTransactionsRaw({ budgetId, data: { transactions } }),
         );
         return response.data.transactions ?? [];
       },

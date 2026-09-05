@@ -6,7 +6,7 @@ import { defineCommand } from "@/cli/command";
 import { requireApplyConfirmation } from "@/cli/mutations";
 import { getOutputWriterOptions } from "@/cli/outputOptions";
 import { type TxSelectorArgs, resolveSelectorIds, validateSelectorInput } from "@/cli/txSelectors";
-import { TransactionService } from "@/domain/TransactionService";
+import { TransactionMutationError, TransactionService } from "@/domain/TransactionService";
 import type { TransactionMutationResult } from "@/domain/TransactionService";
 import { resolveBudgetCurrencyFormat } from "@/domain/budgetCurrency";
 import {
@@ -223,7 +223,8 @@ async function recordMutationHistory(
   const db = ctx?.db;
   if (!db) return;
   const applied = results.filter((result) => result.status === "updated");
-  if (applied.length === 0) return;
+  const unverified = results.filter((result) => result.status === "unverified");
+  if (applied.length === 0 && unverified.length === 0) return;
 
   const payload: HistoryActionPayload = {
     argv: normalizeArgv(argv),
@@ -232,6 +233,7 @@ async function recordMutationHistory(
       id: result.id,
       patch: result.patch as HistoryForwardPatch,
     })),
+    ...(unverified.length > 0 ? { unverified } : {}),
   };
   const inversePatch: HistoryPatchList<HistoryInversePatch> = applied.map((result) => ({
     id: result.id,
@@ -439,7 +441,7 @@ function writeMemoResult(
 }
 
 function writeMutationResults(
-  results: Array<{ id: string; status: string; patch?: unknown }>,
+  results: Array<{ id: string; status: string; patch?: unknown; error?: string }>,
   rawFormat?: string,
   options?: OutputWriterOptions,
 ): void {
@@ -459,6 +461,7 @@ function writeMutationResults(
     id: result.id,
     status: result.status,
     patch: result.patch ? JSON.stringify(result.patch) : "",
+    ...(result.error ? { error: result.error } : {}),
   }));
 
   if (format === "tsv") {
@@ -471,6 +474,9 @@ function writeMutationResults(
       fieldColumn("status", { header: "Status" }),
       fieldColumn("patch", { header: "Patch" }),
       fieldColumn("id", { header: "Id" }),
+      ...(results.some((result) => result.error)
+        ? [fieldColumn("error", { header: "Error" })]
+        : []),
     ],
     rows,
   });
@@ -481,6 +487,48 @@ export const txCommand = {
   describe: "Query and mutate transactions",
   builder: (y: Argv<Record<string, unknown>>) =>
     y
+      .command(
+        defineCommand({
+          command: "apply",
+          describe: "Apply per-transaction category, memo, and approval changes from a JSON file",
+          requirements: txMutationRequirements,
+          builder: (yy) =>
+            yy.option("file", {
+              type: "string",
+              demandOption: true,
+              describe: "JSON changeset with explicit transaction UUIDs",
+            }),
+          handler: async (argv, ctx) => {
+            const args = argv as unknown as CliArgs & { file: string };
+            requireApplyConfirmation(Boolean(args.dryRun), Boolean(args.yes));
+            const input: unknown = await Bun.file(args.file).json();
+            const service = new TransactionService(ctx.ynab, ctx.budgetId);
+            try {
+              const results = await service.applyChanges(input, { dryRun: args.dryRun });
+              await finalizeMutation(
+                ctx,
+                "tx.apply",
+                argv as Record<string, unknown>,
+                results,
+                args.format,
+                getOutputWriterOptions(args),
+              );
+            } catch (error) {
+              if (error instanceof TransactionMutationError) {
+                await finalizeMutation(
+                  ctx,
+                  "tx.apply",
+                  argv as Record<string, unknown>,
+                  error.results,
+                  args.format,
+                  getOutputWriterOptions(args),
+                );
+              }
+              throw error;
+            }
+          },
+        }),
+      )
       .command(
         defineCommand({
           command: "list",

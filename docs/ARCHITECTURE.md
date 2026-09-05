@@ -28,6 +28,8 @@ Notes (current behavior):
 - `budget status` reads one YNAB budget month and classifies Ready to Assign, overspending, and
   native target shortfalls.
 - Mutating commands use the domain service layer for transaction or month-category operations.
+- `tx apply --file` reads a JSON changeset and calls `TransactionService.applyChanges`. It records
+  confirmed rows and unverified details before reporting an incomplete batch as an error.
 - Commands without context requirements (e.g. `auth`, `budget set-default`) run without `appContext`.
 - CLI handlers do not execute SQL directly; they call journal helpers in `src/journal/**`.
 
@@ -63,6 +65,12 @@ Responsibilities:
   future-month protection, ambiguous-write reconciliation, and post-write verification
 
 Key modules:
+- `transactionChanges.ts`: strict per-ID changeset validation for category, memo, and approval.
+- `TransactionService.ts`: shared fresh-read, no-op, patch, inverse-patch, and bulk-write machinery.
+  `applyChanges` resolves category names once, rejects transfers/splits, and verifies the bulk
+  response by ID and requested field values. Only uncertain IDs require additional GETs; writes
+  are never replayed after an ambiguous response. Results include observed API transactions with
+  raw milliunit amounts. Existing individual commands retain their own supported field scope.
 - `transactionReview.ts`: unions the unapproved/uncategorized result sets, classifies
   regular/split/transfer rows, filters account-name prefixes, and limits after counting.
 - `budgetHealth.ts`: classifies one month using API facts. `goal_under_funded` is authoritative for
@@ -79,8 +87,9 @@ Responsibilities:
 - retry/backoff (ONLY where safe)
 - exposes account-scoped transaction listing and server-side transaction type filters
 - exposes budget-month reads plus month-category reads and absolute assigned-value updates
-- reads GET response JSON without the pinned SDK's lossy model conversion, preserving current API
-  category fields such as `internal` and `goal_target_date`
+- reads GET and bulk transaction-update response JSON without the pinned SDK's lossy model
+  conversion, preserving null transaction fields and current API category fields such as `internal`
+  and `goal_target_date`
 
 Implementation notes:
 - `SingleTokenYnabClient` wraps the SDK, enforces concurrency, retries GETs on rate-limit/network errors, and maps errors.
@@ -100,6 +109,10 @@ History patch entries identify their resource. Existing transaction entries defa
 `transaction`; category assignments use `month_category` plus an exact month. The storage schema
 does not need a new table because payloads and inverse patches are JSON. Revert dispatches each
 entry to the matching service and preserves compare-before-write protection for month categories.
+For `tx.apply`, confirmed rows populate `patches` and `inversePatch`; unresolved results are stored
+in `payload.unverified`, including attempted patches, original values, and observed state when
+available. Revert operates only on the confirmed inverse patches. Dry-runs and all-no-op batches
+do not create history entries.
 
 ### 6) Auth / OAuth flow (`src/auth/**`)
 Responsibilities:

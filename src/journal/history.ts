@@ -2,7 +2,11 @@ import type { Database } from "bun:sqlite";
 import { randomUUID } from "node:crypto";
 import type { NewTransaction, TransactionDetail } from "ynab";
 
-import type { MutationInversePatch, MutationPatch } from "@/domain/TransactionService";
+import type {
+  MutationInversePatch,
+  MutationPatch,
+  TransactionMutationResult,
+} from "@/domain/TransactionService";
 import type { JsonValue } from "@/journal/argv";
 
 export type DeletePatch = { delete: true };
@@ -35,6 +39,7 @@ export type HistoryActionPayload = {
   revertOf?: string;
   restored?: Array<{ originalId: string; newId: string }>;
   sourceActionType?: string;
+  unverified?: TransactionMutationResult[];
 };
 
 export type HistoryAction = {

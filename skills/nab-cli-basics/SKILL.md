@@ -1,6 +1,6 @@
 ---
 name: nab-cli-basics
-description: Basics for using the nab CLI (YNAB tool). Use when asked how to run nab commands, review transactions or budget health, safely assign category money, set up PAT/OAuth authentication, configure the default budget id, or troubleshoot NAB_TOKENS/NAB_BUDGET_ID.
+description: Use the nab CLI to review YNAB transactions and budget health, apply per-transaction category/memo/approval batches, safely assign category money, configure PAT/OAuth and budget IDs, or troubleshoot authentication.
 ---
 
 # Nab CLI Basics
@@ -28,6 +28,26 @@ Use this guide to explain the minimal setup (auth token + budget id) and common 
 - Get a PAT from https://app.ynab.com/settings/developer.
 - Store tokens with `bunx @jameskraus/nab auth token add <PAT>`.
 - Run `bunx @jameskraus/nab auth oauth --help` for OAuth setup.
+
+## Apply a reviewed transaction batch
+- Prefer `nab tx apply --file changes.json --yes --format json` when applying authorized category,
+  memo, or approval edits together. Use the maintained checkout's `dist/nab` when available;
+  `tx apply --help` confirms command availability.
+- The file is `{ "transactions": [{ "id": "<TRANSACTION_UUID>", "category_name": "Groceries",
+  "memo": "Weekly shop", "approved": true }] }`. Include only the authorized fields for each row;
+  different rows may have different edits. Use exact UUIDs, not short refs or filter selections.
+- Category ID and name are mutually exclusive. Category names must resolve unambiguously.
+  `memo: null` or `memo: ""` clears the memo; otherwise preserve useful existing notes when replacing
+  it. Memos are limited to 500 characters. `approved: false` explicitly unapproves.
+- Preview with the same file and `--dry-run`. Categorization does not implicitly approve in the
+  CLI; include `approved: true` when the user's instructions authorize both.
+- Handle transfers separately with explicit authorization. Batch edits reject transfers and
+  splits. Budget assignments still use the separate guarded workflow below.
+- Use each returned `transaction` to summarize the saved state; do not immediately fetch those
+  same IDs again after successful results. Amounts in these objects are raw milliunits.
+- If any row is `unverified`, inspect the per-ID output and history before retrying. The CLI has
+  already attempted readback and never replays an uncertain write automatically. Only confirmed
+  rows get automatic inverse patches; unverified rows are recorded separately for inspection.
 
 ## Set budget id (required for most commands)
 - Run `bunx @jameskraus/nab budget list --format json` and copy the `id` field.

@@ -3,6 +3,7 @@ import { ResponseError } from "ynab";
 
 import { SingleTokenYnabClient } from "@/api/SingleTokenYnabClient";
 import type { YnabSdk } from "@/api/adapter";
+import { tx } from "../../helpers/ynabFixtures";
 
 type ApiOverrides = {
   budgets?: Partial<YnabSdk["budgets"]>;
@@ -72,7 +73,7 @@ const stubSdk = (overrides: ApiOverrides): YnabSdk => ({
     updateTransaction: async () => {
       throw new Error("Not implemented");
     },
-    updateTransactions: async () => {
+    updateTransactionsRaw: async () => {
       throw new Error("Not implemented");
     },
     deleteTransaction: async () => {
@@ -139,5 +140,47 @@ test("SingleTokenYnabClient does not retry mutations", async () => {
   await expect(
     client.updateTransaction("budget", "tx", { account_id: "acc" }),
   ).rejects.toBeTruthy();
+  expect(calls).toBe(1);
+});
+
+test("bulk updates preserve null and current API fields without SDK model conversion", async () => {
+  const transaction = {
+    ...tx({ id: "tx", memo: null, category_id: null }),
+    current_api_field: "kept",
+  };
+  const api = stubSdk({
+    transactions: {
+      updateTransactionsRaw: async (params) => {
+        expect(params).toEqual({
+          budgetId: "budget",
+          data: { transactions: [{ id: "tx", memo: null }] },
+        });
+        return {
+          raw: Response.json({ data: { transactions: [transaction] } }),
+          value: async () => {
+            throw new Error("Lossy SDK conversion must not be used");
+          },
+        };
+      },
+    },
+  });
+  const client = new SingleTokenYnabClient("token", undefined, { api });
+  expect(await client.updateTransactions("budget", [{ id: "tx", memo: null }])).toEqual([
+    transaction,
+  ]);
+});
+
+test("bulk updates do not retry an interrupted response", async () => {
+  let calls = 0;
+  const api = stubSdk({
+    transactions: {
+      updateTransactionsRaw: async () => {
+        calls += 1;
+        throw new Error("connection interrupted");
+      },
+    },
+  });
+  const client = new SingleTokenYnabClient("token", undefined, { api, retry: { retries: 2 } });
+  await expect(client.updateTransactions("budget", [{ id: "tx", memo: null }])).rejects.toThrow();
   expect(calls).toBe(1);
 });

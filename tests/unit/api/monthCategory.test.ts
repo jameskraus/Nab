@@ -93,7 +93,7 @@ function stubSdk(overrides: {
       getTransactionByIdRaw: notImplemented,
       createTransaction: notImplemented,
       updateTransaction: notImplemented,
-      updateTransactions: notImplemented,
+      updateTransactionsRaw: notImplemented,
       deleteTransaction: notImplemented,
     },
   };

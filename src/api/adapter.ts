@@ -84,10 +84,10 @@ export type YnabSdk = {
       transactionId: string,
       data: PutTransactionWrapper,
     ) => Promise<TransactionResponse>;
-    updateTransactions: (
-      budgetId: string,
-      data: PatchTransactionsWrapper,
-    ) => Promise<SaveTransactionsResponse>;
+    updateTransactionsRaw: (params: {
+      budgetId: string;
+      data: PatchTransactionsWrapper;
+    }) => Promise<ApiResponse<SaveTransactionsResponse>>;
     deleteTransaction: (budgetId: string, transactionId: string) => Promise<TransactionResponse>;
   };
 };
