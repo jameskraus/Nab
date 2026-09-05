@@ -107,6 +107,9 @@ Command:
 nab fix mislinked-transfer --anchor <id|ref> --phantom <id|ref> --orphan <id|ref>
 ```
 
+Preview with `--dry-run`; apply the same IDs with `--yes`. The preview includes conditional
+counterpart clearing changes and the old anchor's removal if a new counterpart replaces it.
+
 ### Validations
 
 Before making changes, the command validates:
@@ -117,6 +120,15 @@ Before making changes, the command validates:
 - All accounts are direct-import linked and not in error.
 - Anchor, phantom, orphan, and all involved accounts are not deleted.
 - Orphan account type matches phantom account type.
+- The accounts form a checking/savings and credit-card pair; the orphan's account differs from
+  the phantom's account. Anchor and phantom have opposite, nonzero amounts.
+- None of the selected transactions is split.
+
+After relinking, the command verifies that the orphan and its counterpart are live, in the intended
+accounts, have opposite equal amounts, and link reciprocally by both transaction and account IDs.
+The orphan must retain its original account, date, amount, import ID, and clearing state. A changed
+or missing counterpart blocks cleanup. If the phantom still links to the old anchor, both original
+records and their reciprocal links are checked before deliberately deleting that old pair.
 
 ### Confirmed YNAB API behavior (real budget test)
 
@@ -130,9 +142,41 @@ We tested this flow against real mislinked-transfer cases (details anonymized):
 1) Update the **orphan** payee to the **anchor account's transfer payee id**.
    - This converts the imported orphan into a transfer.
    - YNAB **auto-creates the other side** of the transfer in the anchor account.
-2) Delete the **phantom** transaction.
+2) If YNAB creates a **new mirror transaction**, copy the old anchor's **cleared** status onto that new mirror.
+   - The command requests the exact original clearing state, including `reconciled`, and checks
+     the saved response before cleanup. The observed live cases used `cleared`; preservation of
+     `reconciled` is also covered by synthetic tests.
+   - It does **not** preserve `import_id`; the new mirror is still synthetic rather than imported.
+   - The new mirror can use the orphan's date, including a bank-posting lag of several days.
+3) Delete the **phantom** transaction. When the original pair still exists, YNAB also deletes
+   the original anchor. If YNAB instead reuses the anchor as the valid counterpart, retain it and
+   delete only the now-unlinked phantom.
+4) Re-read the surviving pair and original IDs. Success includes a `verify-repair` result with
+   status `verified`; it requires the phantom to be gone, the old anchor to be gone if replaced,
+   and the surviving pair and clearing state to remain correct.
 
-This flow produced correct transfer pairs in both cases.
+This flow produces correct transfer pairs on the intended accounts while preserving cleared state on the new mirror when possible.
+
+### Saved OpenClaw evidence
+
+A September 5, 2026 audit found ten successful repair invocations between May 3 and August 11.
+Follow-up transaction reads were inspected for seven repairs across May 3, July 11 (Eastern), and
+August 11. They showed the imported orphan preserved, a cleared synthetic counterpart with reciprocal
+links, and the original pair absent. July 11 also included explicit not-found responses for the
+original IDs. Repairs occurred in both household-account directions. These are historical production
+observations, not new production tests; current development tests use only the designated test budget.
+
+### Partial failure and history
+
+The operation is multiple API calls, not atomic. A failure can leave the orphan relinked even when
+cleanup did not run. The command emits completed steps plus the failed step and journals successful
+writes, including inverse patches for the orphan payee and counterpart clearing state.
+
+Inspect the orphan, its current counterpart, the original anchor, and the phantom before deciding
+on recovery. Do not blindly repeat the command or delete a transaction suggested by an older error
+message. Network/authentication errors are not proof that a transaction is absent. The journal is
+not a full rollback: deleted original transactions and their import metadata cannot be restored by
+the saved payee/clearing inverse patches alone. Repair does not request transaction approval.
 
 ### Why this works
 
@@ -163,5 +207,6 @@ They were detected via the algorithm above and fixed by updating the orphan paye
 - Only covers checking/savings <-> creditCard transfers (excludes `cash`, `otherAsset`).
 - Requires direct-import linked accounts.
 - Does not attempt natural language analysis.
+- Even with the cleared-state carry-over, the newly created mirror transaction is still **synthetic**; `import_id` is not preserved.
 - Orphan matching is amount/date based; ambiguous matches are surfaced as multiple candidates.
 - Split transfers and transfer moves remain out of scope beyond this targeted fix.

@@ -11,6 +11,7 @@ import { withinDayDelta } from "@/domain/dateOnly";
 import {
   accountKind,
   isAnchorTransaction,
+  isCashCreditPair,
   isOrphanCandidate,
   isPhantomTransaction,
 } from "@/domain/mislinkedTransferPredicates";
@@ -186,6 +187,64 @@ function requireOrphanCandidate(orphan: TransactionDetail): void {
   }
 }
 
+function requireUnchangedRecord(
+  before: TransactionDetail,
+  after: TransactionDetail,
+  label: string,
+): void {
+  if (
+    after.deleted ||
+    after.id !== before.id ||
+    after.account_id !== before.account_id ||
+    after.amount !== before.amount ||
+    after.date !== before.date ||
+    after.import_id !== before.import_id ||
+    after.cleared !== before.cleared ||
+    after.subtransactions.length > 0
+  ) {
+    throw new Error(`${label} changed unexpectedly during repair.`);
+  }
+}
+
+function requireRepairedPair(
+  originalOrphan: TransactionDetail,
+  originalAnchor: TransactionDetail,
+  phantomId: string,
+  orphan: TransactionDetail,
+  counterpart: TransactionDetail,
+): void {
+  requireUnchangedRecord(originalOrphan, orphan, "Orphan");
+  if (
+    counterpart.deleted ||
+    counterpart.id === phantomId ||
+    counterpart.id === orphan.id ||
+    counterpart.account_id !== originalAnchor.account_id ||
+    counterpart.amount !== originalAnchor.amount ||
+    counterpart.amount !== -orphan.amount ||
+    counterpart.subtransactions.length > 0 ||
+    orphan.transfer_transaction_id !== counterpart.id ||
+    counterpart.transfer_transaction_id !== orphan.id ||
+    orphan.transfer_account_id !== counterpart.account_id ||
+    counterpart.transfer_account_id !== orphan.account_id
+  ) {
+    throw new Error("Relink did not produce a reciprocal transfer in the intended accounts.");
+  }
+}
+
+async function getLiveTransaction(
+  ynab: FixYnabClient,
+  budgetId: string,
+  id: string,
+): Promise<TransactionDetail | null> {
+  try {
+    const transaction = await ynab.getTransaction(budgetId, id);
+    return transaction.deleted ? null : transaction;
+  } catch (err) {
+    if (err instanceof NotFoundError) return null;
+    throw err;
+  }
+}
+
 async function pollPhantomUnlinked(
   ynab: FixYnabClient,
   budgetId: string,
@@ -254,6 +313,16 @@ export async function runFixMislinkedTransfer(
   requireAnchorPhantomStatus(anchor, phantom);
   requireOrphanCandidate(orphan);
 
+  if ([anchor, phantom, orphan].some((transaction) => transaction.subtransactions.length > 0)) {
+    throw new Error("Split transfers cannot be repaired in v1.");
+  }
+  if (orphan.account_id === phantom.account_id) {
+    throw new Error("Orphan must belong to a different account from the phantom.");
+  }
+  if (anchor.amount !== -phantom.amount || anchor.amount === 0) {
+    throw new Error("Anchor and phantom must have opposite nonzero amounts.");
+  }
+
   if (orphan.amount !== phantom.amount) {
     throw new Error("Orphan amount must exactly match phantom amount.");
   }
@@ -266,6 +335,10 @@ export async function runFixMislinkedTransfer(
   const anchorAccount = requireAccount(accountById, anchor.account_id, "anchor");
   const phantomAccount = requireAccount(accountById, phantom.account_id, "phantom");
   const orphanAccount = requireAccount(accountById, orphan.account_id, "orphan");
+
+  if (!isCashCreditPair(anchorAccount, phantomAccount)) {
+    throw new Error("Repair requires a checking/savings and credit-card transfer pair.");
+  }
 
   if (!isDirectImportActive(anchorAccount)) {
     throw new Error("Anchor account is not direct-import linked or is in error.");
@@ -304,8 +377,20 @@ export async function runFixMislinkedTransfer(
       patch: JSON.stringify(patch),
     });
     results.push({
+      action: "preserve-counterpart-cleared",
+      id: anchor.id,
+      status: "dry-run",
+      patch: JSON.stringify({ cleared: anchor.cleared }),
+    });
+    results.push({
       action: "delete-phantom",
       id: phantom.id,
+      status: "dry-run",
+      patch: JSON.stringify({ delete: true }),
+    });
+    results.push({
+      action: "delete-old-anchor-if-replaced",
+      id: anchor.id,
       status: "dry-run",
       patch: JSON.stringify({ delete: true }),
     });
@@ -313,116 +398,105 @@ export async function runFixMislinkedTransfer(
     return;
   }
 
-  let orphanUpdated = false;
-  let phantomDeleted = false;
-  let deleteError: unknown = null;
-
-  await ctx.ynab.updateTransaction(ctx.budgetId, orphan.id, patch);
-  orphanUpdated = true;
-  results.push({
-    action: "update-orphan-payee",
-    id: orphan.id,
-    status: "updated",
-    patch: JSON.stringify(patch),
-  });
-  historyPatches.push({ id: orphan.id, patch });
-  inversePatches.push({ id: orphan.id, patch: buildInversePatch(orphan, patch) });
-
-  const phantomAfterUpdate = await pollPhantomUnlinked(
-    ctx.ynab,
-    ctx.budgetId,
-    phantom.id,
-    anchor.id,
-  );
-  if (phantomAfterUpdate && phantomAfterUpdate.transfer_transaction_id === anchor.id) {
-    results.push({
-      action: "delete-phantom",
-      id: phantom.id,
-      status: "blocked",
-      patch: JSON.stringify({ delete: true }),
-    });
-
-    if (ctx.db && historyPatches.length > 0) {
-      recordHistoryAction(
-        ctx.db,
-        "fix.mislinked-transfer",
-        {
-          argv: normalizeArgv(argv as Record<string, unknown>),
-          txIds: historyPatches.map((entry) => entry.id),
-          patches: historyPatches,
-        },
-        inversePatches.length > 0 ? inversePatches : undefined,
-      );
-    }
-
-    writeFixResults(results, args.format, getOutputWriterOptions(args));
-    throw new Error(
-      "Phantom is still linked to anchor after relink attempt. Aborting to avoid deleting anchor.",
-    );
-  }
-
-  if (!phantomAfterUpdate) {
-    results.push({
-      action: "delete-phantom",
-      id: phantom.id,
-      status: "skipped",
-      patch: JSON.stringify({ delete: true }),
-    });
-
-    if (ctx.db && historyPatches.length > 0) {
-      recordHistoryAction(
-        ctx.db,
-        "fix.mislinked-transfer",
-        {
-          argv: normalizeArgv(argv as Record<string, unknown>),
-          txIds: historyPatches.map((entry) => entry.id),
-          patches: historyPatches,
-        },
-        inversePatches.length > 0 ? inversePatches : undefined,
-      );
-    }
-
-    writeFixResults(results, args.format, getOutputWriterOptions(args));
-    return;
-  }
-
+  let step = { action: "update-orphan-payee", id: orphan.id };
   try {
-    await ctx.ynab.deleteTransaction(ctx.budgetId, phantom.id);
-    phantomDeleted = true;
+    await ctx.ynab.updateTransaction(ctx.budgetId, orphan.id, patch);
     results.push({
-      action: "delete-phantom",
-      id: phantom.id,
+      ...step,
       status: "updated",
-      patch: JSON.stringify({ delete: true }),
+      patch: JSON.stringify(patch),
     });
-    historyPatches.push({ id: phantom.id, patch: { delete: true } });
-  } catch (err) {
-    deleteError = err;
+    historyPatches.push({ id: orphan.id, patch });
+    inversePatches.push({ id: orphan.id, patch: buildInversePatch(orphan, patch) });
+
+    step = { action: "verify-relink", id: orphan.id };
+    const polledPhantom = await pollPhantomUnlinked(ctx.ynab, ctx.budgetId, phantom.id, anchor.id);
+    const phantomAfterUpdate = polledPhantom?.deleted ? null : polledPhantom;
+    const orphanAfterUpdate = await ctx.ynab.getTransaction(ctx.budgetId, orphan.id);
+    const counterpartId = orphanAfterUpdate.transfer_transaction_id;
+    if (!counterpartId) throw new Error("Orphan did not receive a transfer counterpart.");
+    let counterpart = await ctx.ynab.getTransaction(ctx.budgetId, counterpartId);
+    requireRepairedPair(orphan, anchor, phantom.id, orphanAfterUpdate, counterpart);
+
+    step = { action: "verify-old-pair", id: phantom.id };
+    if (phantomAfterUpdate) {
+      requireUnchangedRecord(phantom, phantomAfterUpdate, "Phantom");
+      if (phantomAfterUpdate.transfer_transaction_id || phantomAfterUpdate.transfer_account_id) {
+        // Observed YNAB behavior: a new pair coexists with the original pair until deletion
+        // of the phantom removes its original anchor too. Never delete a surviving counterpart.
+        if (counterpart.id === anchor.id) {
+          throw new Error("Phantom still links to the surviving anchor.");
+        }
+        const oldAnchor = await ctx.ynab.getTransaction(ctx.budgetId, anchor.id);
+        requireUnchangedRecord(anchor, oldAnchor, "Anchor");
+        requireLinkedTransfer(oldAnchor, phantomAfterUpdate);
+      }
+    }
+
+    if (counterpart.cleared !== anchor.cleared) {
+      step = { action: "update-new-mirror-cleared", id: counterpart.id };
+      const mirrorPatch = { cleared: anchor.cleared };
+      const updated = await ctx.ynab.updateTransaction(ctx.budgetId, counterpart.id, mirrorPatch);
+      historyPatches.push({ id: counterpart.id, patch: mirrorPatch });
+      inversePatches.push({
+        id: counterpart.id,
+        patch: buildInversePatch(counterpart, mirrorPatch),
+      });
+      requireRepairedPair(orphan, anchor, phantom.id, orphanAfterUpdate, updated);
+      if (updated.cleared !== anchor.cleared) {
+        throw new Error("Counterpart clearing state was not preserved.");
+      }
+      counterpart = updated;
+      results.push({ ...step, status: "updated", patch: JSON.stringify(mirrorPatch) });
+    }
+
+    step = { action: "delete-phantom", id: phantom.id };
+    if (phantomAfterUpdate) {
+      await ctx.ynab.deleteTransaction(ctx.budgetId, phantom.id);
+      historyPatches.push({ id: phantom.id, patch: { delete: true } });
+    }
     results.push({
-      action: "delete-phantom",
-      id: phantom.id,
-      status: "failed",
+      ...step,
+      status: phantomAfterUpdate ? "updated" : "skipped",
       patch: JSON.stringify({ delete: true }),
     });
-  }
 
-  if (ctx.db && historyPatches.length > 0) {
-    recordHistoryAction(
-      ctx.db,
-      "fix.mislinked-transfer",
-      {
-        argv: normalizeArgv(argv as Record<string, unknown>),
-        txIds: historyPatches.map((entry) => entry.id),
-        patches: historyPatches,
-      },
-      inversePatches.length > 0 ? inversePatches : undefined,
+    step = { action: "verify-repair", id: orphan.id };
+    const [verifiedOrphan, verifiedCounterpart, remainingPhantom, remainingAnchor] =
+      await Promise.all([
+        ctx.ynab.getTransaction(ctx.budgetId, orphan.id),
+        ctx.ynab.getTransaction(ctx.budgetId, counterpart.id),
+        getLiveTransaction(ctx.ynab, ctx.budgetId, phantom.id),
+        counterpart.id === anchor.id ? null : getLiveTransaction(ctx.ynab, ctx.budgetId, anchor.id),
+      ]);
+    requireRepairedPair(orphan, anchor, phantom.id, verifiedOrphan, verifiedCounterpart);
+    if (verifiedCounterpart.cleared !== anchor.cleared || remainingPhantom || remainingAnchor) {
+      throw new Error(
+        "Repair verification failed: clearing state or old-pair cleanup is incomplete.",
+      );
+    }
+    results.push({ ...step, status: "verified" });
+  } catch (err) {
+    results.push({ ...step, status: "failed" });
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `${detail} Repair may be partially applied. Inspect the orphan, its current counterpart, the original anchor, and the phantom before any further writes; do not blindly retry or delete.`,
+      { cause: err },
     );
-  }
-
-  writeFixResults(results, args.format, getOutputWriterOptions(args));
-
-  if (orphanUpdated && !phantomDeleted && deleteError) {
-    throw new Error("Orphan was updated but phantom deletion failed. Manual cleanup required.");
+  } finally {
+    if (ctx.db && historyPatches.length > 0) {
+      recordHistoryAction(
+        ctx.db,
+        "fix.mislinked-transfer",
+        {
+          argv: normalizeArgv(argv as Record<string, unknown>),
+          txIds: historyPatches.map((entry) => entry.id),
+          patches: historyPatches,
+        },
+        inversePatches.length > 0 ? inversePatches : undefined,
+      );
+    }
+    writeFixResults(results, args.format, getOutputWriterOptions(args));
   }
 }
 
