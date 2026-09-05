@@ -8,26 +8,33 @@ description: Use the nab CLI to review YNAB transactions and budget health, appl
 ## Overview
 Use this guide to explain the minimal setup (auth token + budget id) and common commands for the nab CLI.
 
+## Choose the executable
+- Use the executable configured in the current workspace. In OpenClaw, read
+  `memory/ynab-cron-shared.md` when present; it supplies the local binary path and review rules.
+- If no maintained local build is configured, `bunx @jameskraus/nab` runs the published package.
+- Throughout this skill, `nab` means the chosen executable or launcher. Use that same path for
+  every command, including help, reads, and mutations.
+
 ## Quick start
 - Requires Bun (https://bun.sh).
-- Run `bunx @jameskraus/nab --help` to list commands and global options.
-- Follow the pattern `bunx @jameskraus/nab <resource> <action> [options]`.
+- Run `nab --help` to list commands and global options.
+- Follow the pattern `nab <resource> <action> [options]`.
 - Use `--format table|json|tsv|ids` to change output format.
 - Run common read commands:
-  - `bunx @jameskraus/nab budget list`
-  - `bunx @jameskraus/nab account list`
-  - `bunx @jameskraus/nab category list`
-  - `bunx @jameskraus/nab payee list`
-  - `bunx @jameskraus/nab tx list`
-  - `bunx @jameskraus/nab tx get --id <TRANSACTION_ID>`
-  - `bunx @jameskraus/nab review transactions --since-date YYYY-MM-DD --limit 5 --format json`
-  - `bunx @jameskraus/nab budget status --month current --format json`
+  - `nab budget list`
+  - `nab account list`
+  - `nab category list`
+  - `nab payee list`
+  - `nab tx list`
+  - `nab tx get --id <TRANSACTION_ID>`
+  - `nab review transactions --since-date YYYY-MM-DD --limit 5 --format json`
+  - `nab budget status --month current --format json`
 
 ## Set authentication (required)
 - Use a YNAB Personal Access Token or OAuth Authorization Code Grant.
 - Get a PAT from https://app.ynab.com/settings/developer.
-- Store tokens with `bunx @jameskraus/nab auth token add <PAT>`.
-- Run `bunx @jameskraus/nab auth oauth --help` for OAuth setup.
+- Store tokens with `nab auth token add <PAT>`.
+- Run `nab auth oauth --help` for OAuth setup.
 
 ## Apply a reviewed transaction batch
 - Prefer `nab tx apply --file changes.json --yes --format json` when applying authorized category,
@@ -50,10 +57,10 @@ Use this guide to explain the minimal setup (auth token + budget id) and common 
   rows get automatic inverse patches; unverified rows are recorded separately for inspection.
 
 ## Set budget id (required for most commands)
-- Run `bunx @jameskraus/nab budget list --format json` and copy the `id` field.
-- Store a default budget id with `bunx @jameskraus/nab budget set-default --id <BUDGET_ID>`.
+- Run `nab budget list --format json` and copy the `id` field.
+- Store a default budget id with `nab budget set-default --id <BUDGET_ID>`.
 - Override per command with `--budget-id <BUDGET_ID>`.
-- Show the effective budget id with `bunx @jameskraus/nab budget current`.
+- Show the effective budget id with `nab budget current`.
 
 ## Notes
 - Use date-only strings (`YYYY-MM-DD`).
@@ -63,7 +70,7 @@ Use this guide to explain the minimal setup (auth token + budget id) and common 
 - `budget status` reports overspending and native target shortfalls. Zero assigned is not an issue
   unless YNAB also reports a target shortfall.
 - Category assignment is an absolute operation:
-  `bunx @jameskraus/nab category set-assigned --id <CATEGORY_ID> --month YYYY-MM-01 --amount <TOTAL> --dry-run`.
+  `nab category set-assigned --id <CATEGORY_ID> --month YYYY-MM-01 --amount <TOTAL> --dry-run`.
 - Applying an assignment requires the exact category id, exact month, `--expected-current`, and
   `--yes` in non-interactive sessions.
 - Review the dry-run's `ready_to_assign_guard_month`; nab protects the future-most YNAB month, not
