@@ -1,0 +1,53 @@
+{
+  "schema": "nab.pending-list/1",
+  "plan_ref": "00000000-0000-4000-8000-000000000001",
+  "records": [
+    {
+      "schema": "nab.pending-transaction/1",
+      "source_system": "ynab-web",
+      "private_entity_ref": "ynp1_LB6AaNDu09cO_yARnJv_q53uOVRiipzhiCPSZO9mMDc",
+      "public_transaction_id": null,
+      "accepted": false,
+      "cleared": "Uncleared",
+      "public_account_id": null,
+      "private_account_ref": "yna1_v5o3VKox7N5frQPMk2uay56juiQV367nmcRdYf8Uf8w",
+      "account_name": "Synthetic Checking",
+      "date": "2026-08-29",
+      "amount_milliunits": "-12345",
+      "payee_name": "Synthetic Merchant",
+      "imported_payee": "SYNTHETIC RAW MERCHANT",
+      "provider_cleansed_payee": "Synthetic Merchant",
+      "memo": "synthetic",
+      "capabilities": {
+        "public_get": false,
+        "public_update": false,
+        "private_read": true,
+        "private_write": false
+      },
+      "observed_at": "2026-08-30T12:00:00.000Z",
+      "lifecycle": "matched_provisional",
+      "source_value": "Matched",
+      "relationship": {
+        "kind": "pending_match",
+        "peer_private_ref": "ynp1_3x3DC_m-ljA1FHJyj7_jJqMmJxZNRzjNwFfaS_aSt1I",
+        "peer_source_value": "matched_pending",
+        "reciprocal": true
+      },
+      "budget_effect": "represented_by_match"
+    }
+  ],
+  "snapshot": {
+    "observed_at": "2026-08-30T12:00:00.000Z",
+    "ynab_sync_age_ms": 0,
+    "sync_in_progress": false,
+    "bootstrap_complete": true,
+    "backfill_complete": true,
+    "complete_for_materialized_snapshot": true,
+    "materialized_first_date": "2026-08-29",
+    "materialized_last_date": "2026-08-29",
+    "provider_retention_guaranteed": false,
+    "source": "browser-catalog"
+  },
+  "warnings": ["UNMAPPED_ACCOUNT"],
+  "ordered_by": "date_desc_then_private_ref_asc"
+}

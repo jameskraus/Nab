@@ -1,0 +1,49 @@
+{
+  "budget_version_id": "syn:budget-version:1",
+  "sync_type": "delta",
+  "schema_version": 44,
+  "schema_version_of_knowledge": 44,
+  "starting_device_knowledge": 0,
+  "ending_device_knowledge": 0,
+  "device_knowledge_of_server": 100,
+  "calculated_entities_included": false,
+  "changed_entities": {
+    "be_transaction_groups": [
+      {
+        "id": "syn:transaction:must-never-send",
+        "be_transaction": {
+          "id": "syn:transaction:must-never-send",
+          "is_tombstone": false,
+          "entities_account_id": "syn:account:private:1",
+          "entities_payee_id": "syn:payee:1",
+          "entities_subcategory_id": null,
+          "entities_scheduled_transaction_id": null,
+          "date": "2026-08-30",
+          "date_entered_from_schedule": null,
+          "amount": -1000,
+          "cash_amount": 0,
+          "credit_amount": 0,
+          "credit_amount_adjusted": 0,
+          "subcategory_credit_amount_preceding": 0,
+          "memo": "synthetic outbound guard fixture",
+          "cleared": "Uncleared",
+          "accepted": true,
+          "check_number": null,
+          "flag": null,
+          "transfer_account_id": null,
+          "transfer_transaction_id": null,
+          "transfer_subtransaction_id": null,
+          "matched_transaction_id": null,
+          "ynab_id": null,
+          "imported_payee": null,
+          "imported_date": null,
+          "original_imported_payee": null,
+          "provider_cleansed_payee": null,
+          "source": null,
+          "debt_transaction_type": null
+        },
+        "be_subtransactions": []
+      }
+    ]
+  }
+}

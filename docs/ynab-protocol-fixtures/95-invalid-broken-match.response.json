@@ -1,0 +1,33 @@
+{
+  "error": null,
+  "schema_version_of_response": 44,
+  "schema_version_of_server": 44,
+  "server_knowledge_of_device": 0,
+  "current_server_knowledge": 102,
+  "changed_entities": {
+    "be_accounts": [
+      {
+        "id": "syn:account:private:1",
+        "is_tombstone": false,
+        "account_type": "checking",
+        "account_name": "Synthetic Checking",
+        "on_budget": true,
+        "is_closed": false
+      }
+    ],
+    "be_transactions": [
+      {
+        "id": "syn:transaction:broken-match:1",
+        "is_tombstone": false,
+        "entities_account_id": "syn:account:private:1",
+        "date": "2026-08-29",
+        "amount": -12345,
+        "cleared": "Uncleared",
+        "accepted": false,
+        "matched_transaction_id": "syn:transaction:missing-peer:1",
+        "source": "Matched"
+      }
+    ],
+    "be_subtransactions": []
+  }
+}

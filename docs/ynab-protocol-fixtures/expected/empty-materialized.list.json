@@ -1,0 +1,19 @@
+{
+  "schema": "nab.pending-list/1",
+  "plan_ref": "00000000-0000-4000-8000-000000000001",
+  "records": [],
+  "snapshot": {
+    "observed_at": "2026-08-30T12:00:00.000Z",
+    "ynab_sync_age_ms": 0,
+    "sync_in_progress": false,
+    "bootstrap_complete": true,
+    "backfill_complete": true,
+    "complete_for_materialized_snapshot": true,
+    "materialized_first_date": null,
+    "materialized_last_date": null,
+    "provider_retention_guaranteed": false,
+    "source": "browser-catalog"
+  },
+  "warnings": [],
+  "ordered_by": "date_desc_then_private_ref_asc"
+}

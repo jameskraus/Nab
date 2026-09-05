@@ -1,0 +1,24 @@
+{
+  "error": null,
+  "schema_version_of_response": 44,
+  "schema_version_of_server": 44,
+  "server_knowledge_of_device": 0,
+  "current_server_knowledge": 100,
+  "changed_entities": {
+    "first_month": "2026-08-01",
+    "last_month": "2026-08-01",
+    "be_budget": {
+      "id": "syn:budget-version:1",
+      "is_tombstone": false,
+      "budget_id": "syn:budget:1",
+      "budget_name": "Synthetic Test Plan",
+      "date_format": null,
+      "currency_format": null,
+      "source": "synthetic"
+    },
+    "be_accounts": [],
+    "be_payees": [],
+    "be_transactions": [],
+    "be_subtransactions": []
+  }
+}

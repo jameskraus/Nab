@@ -1,0 +1,1155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nab.invalid/schemas/fixture-manifest-v2.schema.json",
+  "title": "YNAB pending-read-v1 conformance fixture manifest v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "synthetic_only",
+    "execution_model",
+    "protocol_profile",
+    "schema_files",
+    "provider_contract_context",
+    "normalization_context",
+    "state_oracles",
+    "cases"
+  ],
+  "properties": {
+    "schema": { "const": "nab.ynab-catalog-fixture-manifest/2" },
+    "synthetic_only": { "const": true },
+    "execution_model": {
+      "const": "reset_then_inject_provider_context_then_apply_setup_in_order"
+    },
+    "protocol_profile": { "const": "pending-read-v1" },
+    "schema_files": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifest", "pending_transaction", "pending_list", "broker_request"],
+      "properties": {
+        "manifest": { "const": "schemas/fixture-manifest-v2.schema.json" },
+        "pending_transaction": { "const": "schemas/pending-transaction-v1.schema.json" },
+        "pending_list": { "const": "schemas/pending-list-v1.schema.json" },
+        "broker_request": { "const": "schemas/broker-request-v1.schema.json" }
+      }
+    },
+    "provider_contract_context": { "$ref": "#/$defs/providerContractContext" },
+    "normalization_context": { "$ref": "#/$defs/normalizationContext" },
+    "state_oracles": { "$ref": "#/$defs/stateOracles" },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "$defs": {
+    "relativeJsonPath": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*\\.json$",
+      "maxLength": 256
+    },
+    "normalizedOutputPath": {
+      "type": "string",
+      "pattern": "^expected/[A-Za-z0-9][A-Za-z0-9._/-]*\\.json$",
+      "maxLength": 256
+    },
+    "stateId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "maxLength": 128
+    },
+    "wireId": {
+      "type": "string",
+      "pattern": "^syn:[A-Za-z0-9:_-]+$",
+      "minLength": 5,
+      "maxLength": 200
+    },
+    "nullableWireId": {
+      "oneOf": [{ "$ref": "#/$defs/wireId" }, { "type": "null" }]
+    },
+    "uuid": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "base64urlSha256": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{43}$",
+      "maxLength": 43
+    },
+    "fullDate": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+    },
+    "utcTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\\.[0-9]{1,3})?Z$"
+    },
+    "safeKnowledgeOrNull": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "entityIdList": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 10000,
+      "items": { "$ref": "#/$defs/wireId" }
+    },
+    "providerContractContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identity_key_hex",
+        "expected_account_fingerprint",
+        "expected_plan_fingerprint",
+        "expected_budget_fingerprint",
+        "synthetic_algorithm_assumptions"
+      ],
+      "properties": {
+        "identity_key_hex": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "expected_account_fingerprint": { "$ref": "#/$defs/base64urlSha256" },
+        "expected_plan_fingerprint": { "$ref": "#/$defs/base64urlSha256" },
+        "expected_budget_fingerprint": { "$ref": "#/$defs/base64urlSha256" },
+        "synthetic_algorithm_assumptions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["matched_pending_shape", "response_shape_registry"],
+          "properties": {
+            "matched_pending_shape": { "const": "enabled_for_algorithm_fixture_only" },
+            "response_shape_registry": { "const": "assumed_closed_for_algorithm_fixture_only" }
+          }
+        }
+      }
+    },
+    "normalizationContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan_ref", "reference_key_hex", "observed_at", "ynab_sync_age_ms", "source"],
+      "properties": {
+        "plan_ref": { "$ref": "#/$defs/uuid" },
+        "reference_key_hex": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "observed_at": { "$ref": "#/$defs/utcTimestamp" },
+        "ynab_sync_age_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "source": { "enum": ["page-snapshot", "browser-catalog"] }
+      }
+    },
+    "deviceState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lifecycle",
+        "workflow_state",
+        "session_token_state",
+        "cache_state",
+        "logical_device_reusable"
+      ],
+      "properties": {
+        "lifecycle": { "enum": ["active", "stopped", "quarantined", "destroyed"] },
+        "workflow_state": {
+          "enum": [
+            "catalog_sync",
+            "family_sync_or_skip",
+            "budget_bootstrap",
+            "partial_backfill",
+            "ready",
+            "permission_denied",
+            "ambiguous_commit",
+            "protocol_update",
+            "provider_error",
+            "quarantined"
+          ]
+        },
+        "session_token_state": { "enum": ["committed", "discarded"] },
+        "cache_state": { "enum": ["resident", "resident_inaccessible", "purged"] },
+        "logical_device_reusable": { "type": "boolean" }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "lifecycle": { "const": "active" },
+            "workflow_state": {
+              "enum": [
+                "catalog_sync",
+                "family_sync_or_skip",
+                "budget_bootstrap",
+                "partial_backfill",
+                "ready"
+              ]
+            },
+            "session_token_state": { "const": "committed" },
+            "cache_state": { "const": "resident" },
+            "logical_device_reusable": { "const": true }
+          }
+        },
+        {
+          "properties": {
+            "lifecycle": { "const": "destroyed" },
+            "workflow_state": { "enum": ["permission_denied", "ambiguous_commit", "quarantined"] },
+            "session_token_state": { "const": "discarded" },
+            "cache_state": { "const": "purged" },
+            "logical_device_reusable": { "const": false }
+          }
+        },
+        {
+          "properties": {
+            "lifecycle": { "const": "quarantined" },
+            "workflow_state": { "const": "protocol_update" },
+            "session_token_state": { "const": "committed" },
+            "cache_state": { "const": "resident_inaccessible" },
+            "logical_device_reusable": { "const": false }
+          }
+        },
+        {
+          "properties": {
+            "lifecycle": { "const": "stopped" },
+            "workflow_state": { "const": "provider_error" },
+            "session_token_state": { "const": "committed" },
+            "cache_state": { "const": "resident_inaccessible" },
+            "logical_device_reusable": { "const": false }
+          }
+        }
+      ]
+    },
+    "catalogEntitySets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ce_users", "ce_user_budgets"],
+      "properties": {
+        "ce_users": { "$ref": "#/$defs/entityIdList" },
+        "ce_user_budgets": { "$ref": "#/$defs/entityIdList" }
+      }
+    },
+    "familyEntitySets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fe_family", "fe_family_members"],
+      "properties": {
+        "fe_family": { "$ref": "#/$defs/entityIdList" },
+        "fe_family_members": { "$ref": "#/$defs/entityIdList" }
+      }
+    },
+    "budgetEntitySets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "be_budget",
+        "be_accounts",
+        "be_payees",
+        "be_transactions",
+        "be_subtransactions"
+      ],
+      "properties": {
+        "be_budget": { "$ref": "#/$defs/entityIdList" },
+        "be_accounts": { "$ref": "#/$defs/entityIdList" },
+        "be_payees": { "$ref": "#/$defs/entityIdList" },
+        "be_transactions": { "$ref": "#/$defs/entityIdList" },
+        "be_subtransactions": { "$ref": "#/$defs/entityIdList" }
+      }
+    },
+    "budgetRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["first_month", "last_month"],
+      "properties": {
+        "first_month": {
+          "oneOf": [{ "$ref": "#/$defs/fullDate" }, { "type": "null" }]
+        },
+        "last_month": {
+          "oneOf": [{ "$ref": "#/$defs/fullDate" }, { "type": "null" }]
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "first_month": { "type": "null" },
+            "last_month": { "type": "null" }
+          }
+        },
+        {
+          "properties": {
+            "first_month": { "$ref": "#/$defs/fullDate" },
+            "last_month": { "$ref": "#/$defs/fullDate" }
+          }
+        }
+      ]
+    },
+    "catalogState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "schema_version_of_knowledge",
+        "Kc",
+        "Ks",
+        "Kr",
+        "identity",
+        "active_entity_ids",
+        "tombstone_entity_ids"
+      ],
+      "properties": {
+        "status": { "enum": ["not_initialized", "awaiting_catalog", "selected"] },
+        "schema_version_of_knowledge": { "type": ["integer", "null"], "enum": [null, 17] },
+        "Kc": { "$ref": "#/$defs/safeKnowledgeOrNull" },
+        "Ks": { "$ref": "#/$defs/safeKnowledgeOrNull" },
+        "Kr": { "$ref": "#/$defs/safeKnowledgeOrNull" },
+        "identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["bound_user_id", "selected_budget_id", "selected_budget_version_id"],
+          "properties": {
+            "bound_user_id": { "$ref": "#/$defs/nullableWireId" },
+            "selected_budget_id": { "$ref": "#/$defs/nullableWireId" },
+            "selected_budget_version_id": { "$ref": "#/$defs/nullableWireId" }
+          }
+        },
+        "active_entity_ids": { "$ref": "#/$defs/catalogEntitySets" },
+        "tombstone_entity_ids": { "$ref": "#/$defs/catalogEntitySets" }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "status": { "const": "not_initialized" },
+            "schema_version_of_knowledge": { "type": "null" },
+            "Kc": { "type": "null" },
+            "Ks": { "type": "null" },
+            "Kr": { "type": "null" },
+            "identity": {
+              "properties": {
+                "bound_user_id": { "type": "null" },
+                "selected_budget_id": { "type": "null" },
+                "selected_budget_version_id": { "type": "null" }
+              }
+            },
+            "active_entity_ids": {
+              "properties": {
+                "ce_users": { "maxItems": 0 },
+                "ce_user_budgets": { "maxItems": 0 }
+              }
+            },
+            "tombstone_entity_ids": {
+              "properties": {
+                "ce_users": { "maxItems": 0 },
+                "ce_user_budgets": { "maxItems": 0 }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "status": { "const": "awaiting_catalog" },
+            "schema_version_of_knowledge": { "const": 17 },
+            "Kc": { "const": 0 },
+            "Ks": { "const": 0 },
+            "Kr": { "const": 0 },
+            "identity": {
+              "properties": {
+                "bound_user_id": { "$ref": "#/$defs/wireId" },
+                "selected_budget_id": { "type": "null" },
+                "selected_budget_version_id": { "type": "null" }
+              }
+            },
+            "active_entity_ids": {
+              "properties": {
+                "ce_users": { "minItems": 1, "maxItems": 1 },
+                "ce_user_budgets": { "maxItems": 0 }
+              }
+            },
+            "tombstone_entity_ids": {
+              "properties": {
+                "ce_users": { "maxItems": 0 },
+                "ce_user_budgets": { "maxItems": 0 }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "status": { "const": "selected" },
+            "schema_version_of_knowledge": { "const": 17 },
+            "Kc": { "const": 0 },
+            "Ks": { "const": 0 },
+            "Kr": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "identity": {
+              "properties": {
+                "bound_user_id": { "$ref": "#/$defs/wireId" },
+                "selected_budget_id": { "$ref": "#/$defs/wireId" },
+                "selected_budget_version_id": { "$ref": "#/$defs/wireId" }
+              }
+            },
+            "active_entity_ids": {
+              "properties": {
+                "ce_users": { "minItems": 1, "maxItems": 1 },
+                "ce_user_budgets": { "minItems": 1, "maxItems": 1 }
+              }
+            },
+            "tombstone_entity_ids": {
+              "properties": {
+                "ce_users": { "maxItems": 0 },
+                "ce_user_budgets": { "maxItems": 0 }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "familyState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "schema_version_of_knowledge",
+        "Kc",
+        "Ks",
+        "Kr",
+        "identity",
+        "active_entity_ids",
+        "tombstone_entity_ids"
+      ],
+      "properties": {
+        "status": {
+          "enum": ["not_initialized", "sync_pending", "absent", "available", "unavailable"]
+        },
+        "schema_version_of_knowledge": { "type": ["integer", "null"], "enum": [null, 4] },
+        "Kc": { "$ref": "#/$defs/safeKnowledgeOrNull" },
+        "Ks": { "$ref": "#/$defs/safeKnowledgeOrNull" },
+        "Kr": { "$ref": "#/$defs/safeKnowledgeOrNull" },
+        "identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["family_id", "unavailable_reason"],
+          "properties": {
+            "family_id": { "$ref": "#/$defs/nullableWireId" },
+            "unavailable_reason": {
+              "type": ["string", "null"],
+              "enum": [null, "permission_error", "matching_family_tombstone"]
+            }
+          }
+        },
+        "active_entity_ids": { "$ref": "#/$defs/familyEntitySets" },
+        "tombstone_entity_ids": { "$ref": "#/$defs/familyEntitySets" }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "status": { "const": "not_initialized" },
+            "schema_version_of_knowledge": { "type": "null" },
+            "Kc": { "type": "null" },
+            "Ks": { "type": "null" },
+            "Kr": { "type": "null" },
+            "identity": {
+              "properties": {
+                "family_id": { "type": "null" },
+                "unavailable_reason": { "type": "null" }
+              }
+            },
+            "active_entity_ids": {
+              "properties": {
+                "fe_family": { "maxItems": 0 },
+                "fe_family_members": { "maxItems": 0 }
+              }
+            },
+            "tombstone_entity_ids": {
+              "properties": {
+                "fe_family": { "maxItems": 0 },
+                "fe_family_members": { "maxItems": 0 }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "status": { "const": "sync_pending" },
+            "schema_version_of_knowledge": { "const": 4 },
+            "Kc": { "const": 0 },
+            "Ks": { "const": 0 },
+            "Kr": { "const": 0 },
+            "identity": {
+              "properties": {
+                "family_id": { "$ref": "#/$defs/wireId" },
+                "unavailable_reason": { "type": "null" }
+              }
+            },
+            "active_entity_ids": {
+              "properties": {
+                "fe_family": { "maxItems": 0 },
+                "fe_family_members": { "maxItems": 0 }
+              }
+            },
+            "tombstone_entity_ids": {
+              "properties": {
+                "fe_family": { "maxItems": 0 },
+                "fe_family_members": { "maxItems": 0 }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "status": { "const": "absent" },
+            "schema_version_of_knowledge": { "const": 4 },
+            "Kc": { "const": 0 },
+            "Ks": { "const": 0 },
+            "Kr": { "const": 0 },
+            "identity": {
+              "properties": {
+                "family_id": { "type": "null" },
+                "unavailable_reason": { "type": "null" }
+              }
+            },
+            "active_entity_ids": {
+              "properties": {
+                "fe_family": { "maxItems": 0 },
+                "fe_family_members": { "maxItems": 0 }
+              }
+            },
+            "tombstone_entity_ids": {
+              "properties": {
+                "fe_family": { "maxItems": 0 },
+                "fe_family_members": { "maxItems": 0 }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "status": { "const": "available" },
+            "schema_version_of_knowledge": { "const": 4 },
+            "Kc": { "const": 0 },
+            "Ks": { "const": 0 },
+            "Kr": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "identity": {
+              "properties": {
+                "family_id": { "$ref": "#/$defs/wireId" },
+                "unavailable_reason": { "type": "null" }
+              }
+            },
+            "active_entity_ids": {
+              "properties": {
+                "fe_family": { "minItems": 1, "maxItems": 1 }
+              }
+            },
+            "tombstone_entity_ids": {
+              "properties": {
+                "fe_family": { "maxItems": 0 }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "status": { "const": "unavailable" },
+            "schema_version_of_knowledge": { "const": 4 },
+            "Kc": { "const": 0 },
+            "Ks": { "const": 0 },
+            "Kr": { "const": 0 },
+            "identity": {
+              "properties": {
+                "family_id": { "$ref": "#/$defs/wireId" },
+                "unavailable_reason": { "const": "permission_error" }
+              }
+            },
+            "active_entity_ids": {
+              "properties": {
+                "fe_family": { "maxItems": 0 },
+                "fe_family_members": { "maxItems": 0 }
+              }
+            },
+            "tombstone_entity_ids": {
+              "properties": {
+                "fe_family": { "maxItems": 0 },
+                "fe_family_members": { "maxItems": 0 }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "status": { "const": "unavailable" },
+            "schema_version_of_knowledge": { "const": 4 },
+            "Kc": { "const": 0 },
+            "Ks": { "const": 0 },
+            "Kr": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "identity": {
+              "properties": {
+                "family_id": { "$ref": "#/$defs/wireId" },
+                "unavailable_reason": { "const": "matching_family_tombstone" }
+              }
+            },
+            "active_entity_ids": {
+              "properties": {
+                "fe_family": { "maxItems": 0 },
+                "fe_family_members": { "maxItems": 0 }
+              }
+            },
+            "tombstone_entity_ids": {
+              "properties": {
+                "fe_family": { "minItems": 1, "maxItems": 1 }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "budgetState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "schema_version_of_knowledge",
+        "Kc",
+        "Ks",
+        "Kr",
+        "identity",
+        "range",
+        "active_entity_ids",
+        "tombstone_entity_ids"
+      ],
+      "properties": {
+        "status": { "enum": ["not_initialized", "sync_pending", "bootstrap_partial", "ready"] },
+        "schema_version_of_knowledge": { "type": ["integer", "null"], "enum": [null, 44] },
+        "Kc": { "$ref": "#/$defs/safeKnowledgeOrNull" },
+        "Ks": { "$ref": "#/$defs/safeKnowledgeOrNull" },
+        "Kr": { "$ref": "#/$defs/safeKnowledgeOrNull" },
+        "identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["budget_id", "budget_version_id"],
+          "properties": {
+            "budget_id": { "$ref": "#/$defs/nullableWireId" },
+            "budget_version_id": { "$ref": "#/$defs/nullableWireId" }
+          }
+        },
+        "range": { "$ref": "#/$defs/budgetRange" },
+        "active_entity_ids": { "$ref": "#/$defs/budgetEntitySets" },
+        "tombstone_entity_ids": { "$ref": "#/$defs/budgetEntitySets" }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "status": { "const": "not_initialized" },
+            "schema_version_of_knowledge": { "type": "null" },
+            "Kc": { "type": "null" },
+            "Ks": { "type": "null" },
+            "Kr": { "type": "null" },
+            "identity": {
+              "properties": {
+                "budget_id": { "type": "null" },
+                "budget_version_id": { "type": "null" }
+              }
+            },
+            "range": {
+              "properties": {
+                "first_month": { "type": "null" },
+                "last_month": { "type": "null" }
+              }
+            },
+            "active_entity_ids": {
+              "properties": {
+                "be_budget": { "maxItems": 0 },
+                "be_accounts": { "maxItems": 0 },
+                "be_payees": { "maxItems": 0 },
+                "be_transactions": { "maxItems": 0 },
+                "be_subtransactions": { "maxItems": 0 }
+              }
+            },
+            "tombstone_entity_ids": {
+              "properties": {
+                "be_budget": { "maxItems": 0 },
+                "be_accounts": { "maxItems": 0 },
+                "be_payees": { "maxItems": 0 },
+                "be_transactions": { "maxItems": 0 },
+                "be_subtransactions": { "maxItems": 0 }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "status": { "const": "sync_pending" },
+            "schema_version_of_knowledge": { "const": 44 },
+            "Kc": { "const": 0 },
+            "Ks": { "const": 0 },
+            "Kr": { "const": 0 },
+            "identity": {
+              "properties": {
+                "budget_id": { "$ref": "#/$defs/wireId" },
+                "budget_version_id": { "$ref": "#/$defs/wireId" }
+              }
+            },
+            "range": {
+              "properties": {
+                "first_month": { "type": "null" },
+                "last_month": { "type": "null" }
+              }
+            },
+            "active_entity_ids": {
+              "properties": {
+                "be_budget": { "maxItems": 0 },
+                "be_accounts": { "maxItems": 0 },
+                "be_payees": { "maxItems": 0 },
+                "be_transactions": { "maxItems": 0 },
+                "be_subtransactions": { "maxItems": 0 }
+              }
+            },
+            "tombstone_entity_ids": {
+              "properties": {
+                "be_budget": { "maxItems": 0 },
+                "be_accounts": { "maxItems": 0 },
+                "be_payees": { "maxItems": 0 },
+                "be_transactions": { "maxItems": 0 },
+                "be_subtransactions": { "maxItems": 0 }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "status": { "const": "bootstrap_partial" },
+            "schema_version_of_knowledge": { "const": 44 },
+            "Kc": { "const": 0 },
+            "Ks": { "const": 0 },
+            "Kr": { "const": 0 },
+            "identity": {
+              "properties": {
+                "budget_id": { "$ref": "#/$defs/wireId" },
+                "budget_version_id": { "$ref": "#/$defs/wireId" }
+              }
+            },
+            "active_entity_ids": {
+              "properties": {
+                "be_budget": { "minItems": 1, "maxItems": 1 }
+              }
+            },
+            "tombstone_entity_ids": {
+              "properties": {
+                "be_budget": { "maxItems": 0 }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "status": { "const": "ready" },
+            "schema_version_of_knowledge": { "const": 44 },
+            "Kc": { "const": 0 },
+            "Ks": { "const": 0 },
+            "Kr": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "identity": {
+              "properties": {
+                "budget_id": { "$ref": "#/$defs/wireId" },
+                "budget_version_id": { "$ref": "#/$defs/wireId" }
+              }
+            },
+            "active_entity_ids": {
+              "properties": {
+                "be_budget": { "minItems": 1, "maxItems": 1 }
+              }
+            },
+            "tombstone_entity_ids": {
+              "properties": {
+                "be_budget": { "maxItems": 0 }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "postState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["device_state", "catalog_state", "family_state", "budget_state"],
+      "properties": {
+        "device_state": { "$ref": "#/$defs/stateId" },
+        "catalog_state": { "$ref": "#/$defs/stateId" },
+        "family_state": { "$ref": "#/$defs/stateId" },
+        "budget_state": { "$ref": "#/$defs/stateId" }
+      }
+    },
+    "stateOracles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "device_states",
+        "catalog_states",
+        "family_states",
+        "budget_states",
+        "post_states"
+      ],
+      "properties": {
+        "device_states": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "$ref": "#/$defs/stateId" },
+          "additionalProperties": { "$ref": "#/$defs/deviceState" }
+        },
+        "catalog_states": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "$ref": "#/$defs/stateId" },
+          "additionalProperties": { "$ref": "#/$defs/catalogState" }
+        },
+        "family_states": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "$ref": "#/$defs/stateId" },
+          "additionalProperties": { "$ref": "#/$defs/familyState" }
+        },
+        "budget_states": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "$ref": "#/$defs/stateId" },
+          "additionalProperties": { "$ref": "#/$defs/budgetState" }
+        },
+        "post_states": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "$ref": "#/$defs/stateId" },
+          "additionalProperties": { "$ref": "#/$defs/postState" }
+        }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "disposition",
+        "phase",
+        "commit",
+        "error_code",
+        "normalized_output_file",
+        "post_state_oracle"
+      ],
+      "properties": {
+        "disposition": {
+          "enum": [
+            "accept",
+            "reject_before_transport",
+            "reject_without_commit",
+            "accept_then_query_error"
+          ]
+        },
+        "phase": {
+          "enum": ["initial_decode", "request_guard", "response_decode", "merge", "normalize"]
+        },
+        "commit": {
+          "enum": [
+            "none",
+            "session_user_zero_catalog_after_account_binding",
+            "catalog_entities_then_cursor",
+            "family_entities_then_cursor",
+            "budget_entities_without_cursor",
+            "budget_entities_then_cursor",
+            "budget_cursor_only"
+          ]
+        },
+        "error_code": {
+          "type": ["string", "null"],
+          "enum": [
+            null,
+            "SCHEMA_CHANGED",
+            "PROVIDER_ERROR",
+            "PERMISSION_DENIED",
+            "AMBIGUOUS_COMMIT",
+            "PROTOCOL_CHANGED",
+            "UNSUPPORTED_PENDING_SHAPE"
+          ]
+        },
+        "normalized_output_file": {
+          "oneOf": [{ "$ref": "#/$defs/normalizedOutputPath" }, { "type": "null" }]
+        },
+        "post_state_oracle": { "$ref": "#/$defs/stateId" }
+      }
+    },
+    "expectedInitialAccept": {
+      "allOf": [
+        { "$ref": "#/$defs/expected" },
+        {
+          "properties": {
+            "disposition": { "const": "accept" },
+            "phase": { "const": "initial_decode" },
+            "commit": { "const": "session_user_zero_catalog_after_account_binding" },
+            "error_code": { "type": "null" },
+            "normalized_output_file": { "type": "null" }
+          }
+        }
+      ]
+    },
+    "expectedCatalogAccept": {
+      "allOf": [
+        { "$ref": "#/$defs/expected" },
+        {
+          "properties": {
+            "disposition": { "const": "accept" },
+            "phase": { "const": "merge" },
+            "commit": { "const": "catalog_entities_then_cursor" },
+            "error_code": { "type": "null" },
+            "normalized_output_file": { "type": "null" }
+          }
+        }
+      ]
+    },
+    "expectedCatalogPermissionReject": {
+      "allOf": [
+        { "$ref": "#/$defs/expected" },
+        {
+          "properties": {
+            "disposition": { "const": "reject_without_commit" },
+            "phase": { "const": "merge" },
+            "commit": { "const": "none" },
+            "error_code": { "const": "PERMISSION_DENIED" },
+            "normalized_output_file": { "type": "null" }
+          }
+        }
+      ]
+    },
+    "expectedFamilyAccept": {
+      "allOf": [
+        { "$ref": "#/$defs/expected" },
+        {
+          "properties": {
+            "disposition": { "const": "accept" },
+            "phase": { "const": "merge" },
+            "commit": { "const": "family_entities_then_cursor" },
+            "error_code": { "type": "null" },
+            "normalized_output_file": { "type": "null" }
+          }
+        }
+      ]
+    },
+    "expectedBootstrapAccept": {
+      "allOf": [
+        { "$ref": "#/$defs/expected" },
+        {
+          "properties": {
+            "disposition": { "const": "accept" },
+            "phase": { "const": "merge" },
+            "commit": { "const": "budget_entities_without_cursor" },
+            "error_code": { "type": "null" },
+            "normalized_output_file": { "type": "null" }
+          }
+        }
+      ]
+    },
+    "expectedBudgetNormalizeAccept": {
+      "allOf": [
+        { "$ref": "#/$defs/expected" },
+        {
+          "properties": {
+            "disposition": { "const": "accept" },
+            "phase": { "const": "normalize" },
+            "commit": { "const": "budget_entities_then_cursor" },
+            "error_code": { "type": "null" },
+            "normalized_output_file": { "$ref": "#/$defs/normalizedOutputPath" }
+          }
+        }
+      ]
+    },
+    "expectedBudgetCursorNormalizeAccept": {
+      "allOf": [
+        { "$ref": "#/$defs/expected" },
+        {
+          "properties": {
+            "disposition": { "const": "accept" },
+            "phase": { "const": "normalize" },
+            "commit": { "const": "budget_cursor_only" },
+            "error_code": { "type": "null" },
+            "normalized_output_file": { "$ref": "#/$defs/normalizedOutputPath" }
+          }
+        }
+      ]
+    },
+    "expectedRequestGuardReject": {
+      "allOf": [
+        { "$ref": "#/$defs/expected" },
+        {
+          "properties": {
+            "disposition": { "const": "reject_before_transport" },
+            "phase": { "const": "request_guard" },
+            "commit": { "const": "none" },
+            "error_code": { "const": "AMBIGUOUS_COMMIT" },
+            "normalized_output_file": { "type": "null" }
+          }
+        }
+      ]
+    },
+    "expectedResponseDecodeReject": {
+      "allOf": [
+        { "$ref": "#/$defs/expected" },
+        {
+          "properties": {
+            "disposition": { "const": "reject_without_commit" },
+            "phase": { "const": "response_decode" },
+            "commit": { "const": "none" },
+            "error_code": { "enum": ["SCHEMA_CHANGED", "PROVIDER_ERROR"] },
+            "normalized_output_file": { "type": "null" }
+          }
+        }
+      ]
+    },
+    "expectedMergeProtocolReject": {
+      "allOf": [
+        { "$ref": "#/$defs/expected" },
+        {
+          "properties": {
+            "disposition": { "const": "reject_without_commit" },
+            "phase": { "const": "merge" },
+            "commit": { "const": "none" },
+            "error_code": { "const": "PROTOCOL_CHANGED" },
+            "normalized_output_file": { "type": "null" }
+          }
+        }
+      ]
+    },
+    "expectedQueryReject": {
+      "allOf": [
+        { "$ref": "#/$defs/expected" },
+        {
+          "properties": {
+            "disposition": { "const": "accept_then_query_error" },
+            "phase": { "const": "normalize" },
+            "commit": { "const": "budget_entities_then_cursor" },
+            "error_code": { "enum": ["PROTOCOL_CHANGED", "UNSUPPORTED_PENDING_SHAPE"] },
+            "normalized_output_file": { "type": "null" }
+          }
+        }
+      ]
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "fixture_file",
+        "operation",
+        "direction",
+        "sync_type",
+        "setup",
+        "expected"
+      ],
+      "properties": {
+        "case_id": { "$ref": "#/$defs/stateId" },
+        "fixture_file": { "$ref": "#/$defs/relativeJsonPath" },
+        "operation": {
+          "enum": ["getInitialUserData", "syncCatalogData", "syncFamilyData", "syncBudgetData"]
+        },
+        "direction": { "enum": ["request", "response"] },
+        "sync_type": {
+          "type": ["string", "null"],
+          "enum": [null, "bootstrap", "backfill", "delta"]
+        },
+        "setup": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/relativeJsonPath" }
+        },
+        "expected": { "$ref": "#/$defs/expected" }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "operation": { "const": "getInitialUserData" },
+            "direction": { "const": "response" },
+            "sync_type": { "type": "null" },
+            "expected": { "$ref": "#/$defs/expectedInitialAccept" }
+          }
+        },
+        {
+          "properties": {
+            "operation": { "const": "syncCatalogData" },
+            "direction": { "const": "response" },
+            "sync_type": { "type": "null" },
+            "expected": { "$ref": "#/$defs/expectedCatalogAccept" }
+          }
+        },
+        {
+          "properties": {
+            "operation": { "const": "syncCatalogData" },
+            "direction": { "const": "response" },
+            "sync_type": { "type": "null" },
+            "expected": { "$ref": "#/$defs/expectedCatalogPermissionReject" }
+          }
+        },
+        {
+          "properties": {
+            "operation": { "const": "syncFamilyData" },
+            "direction": { "const": "response" },
+            "sync_type": { "type": "null" },
+            "expected": { "$ref": "#/$defs/expectedFamilyAccept" }
+          }
+        },
+        {
+          "properties": {
+            "operation": { "const": "syncBudgetData" },
+            "direction": { "const": "response" },
+            "sync_type": { "const": "bootstrap" },
+            "expected": { "$ref": "#/$defs/expectedBootstrapAccept" }
+          }
+        },
+        {
+          "properties": {
+            "operation": { "const": "syncBudgetData" },
+            "direction": { "const": "response" },
+            "sync_type": { "const": "backfill" },
+            "expected": { "$ref": "#/$defs/expectedBudgetNormalizeAccept" }
+          }
+        },
+        {
+          "properties": {
+            "operation": { "const": "syncBudgetData" },
+            "direction": { "const": "response" },
+            "sync_type": { "const": "delta" },
+            "expected": { "$ref": "#/$defs/expectedBudgetNormalizeAccept" }
+          }
+        },
+        {
+          "properties": {
+            "operation": { "const": "syncBudgetData" },
+            "direction": { "const": "response" },
+            "sync_type": { "const": "delta" },
+            "expected": { "$ref": "#/$defs/expectedBudgetCursorNormalizeAccept" }
+          }
+        },
+        {
+          "properties": {
+            "operation": { "const": "syncBudgetData" },
+            "direction": { "const": "request" },
+            "sync_type": { "const": "delta" },
+            "expected": { "$ref": "#/$defs/expectedRequestGuardReject" }
+          }
+        },
+        {
+          "properties": {
+            "operation": { "const": "syncBudgetData" },
+            "direction": { "const": "response" },
+            "sync_type": { "const": "delta" },
+            "expected": { "$ref": "#/$defs/expectedResponseDecodeReject" }
+          }
+        },
+        {
+          "properties": {
+            "operation": { "const": "syncBudgetData" },
+            "direction": { "const": "response" },
+            "sync_type": { "const": "delta" },
+            "expected": { "$ref": "#/$defs/expectedMergeProtocolReject" }
+          }
+        },
+        {
+          "properties": {
+            "operation": { "const": "syncBudgetData" },
+            "direction": { "const": "response" },
+            "sync_type": { "const": "delta" },
+            "expected": { "$ref": "#/$defs/expectedQueryReject" }
+          }
+        }
+      ]
+    }
+  }
+}

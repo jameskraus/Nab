@@ -1,0 +1,33 @@
+{
+  "error": null,
+  "schema_version_of_response": 17,
+  "schema_version_of_server": 17,
+  "server_knowledge_of_device": 0,
+  "current_server_knowledge": 12,
+  "changed_entities": {
+    "ce_users": [
+      {
+        "id": "syn:user:1",
+        "username": "synthetic-user",
+        "email": "synthetic@example.invalid",
+        "family_id": "syn:family:1",
+        "family_role": "owner",
+        "first_name": "Synthetic",
+        "is_subscribed": true
+      }
+    ],
+    "ce_user_budgets": [
+      {
+        "id": "syn:user-budget:1",
+        "is_tombstone": false,
+        "user_id": "syn:user:1",
+        "budget_id": "syn:budget:1",
+        "budget_version_id": "syn:budget-version:1",
+        "budget_name": "Synthetic Test Plan",
+        "source": "synthetic"
+      }
+    ],
+    "ce_user_settings": [],
+    "ce_user_privacy_policy_agreements": []
+  }
+}

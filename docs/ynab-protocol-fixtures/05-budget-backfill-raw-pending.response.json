@@ -1,0 +1,67 @@
+{
+  "error": null,
+  "schema_version_of_response": 44,
+  "schema_version_of_server": 44,
+  "server_knowledge_of_device": 0,
+  "current_server_knowledge": 100,
+  "changed_entities": {
+    "first_month": "2026-08-01",
+    "last_month": "2026-08-01",
+    "be_accounts": [
+      {
+        "id": "syn:account:private:1",
+        "is_tombstone": false,
+        "account_type": "checking",
+        "account_name": "Synthetic Checking",
+        "on_budget": true,
+        "is_closed": false,
+        "note": null,
+        "direct_import_status": "linked"
+      }
+    ],
+    "be_payees": [
+      {
+        "id": "syn:payee:1",
+        "is_tombstone": false,
+        "name": "Synthetic Merchant",
+        "entities_account_id": null,
+        "internal_name": null,
+        "enabled": true
+      }
+    ],
+    "be_transactions": [
+      {
+        "id": "syn:transaction:raw-pending:1",
+        "is_tombstone": false,
+        "entities_account_id": "syn:account:private:1",
+        "entities_payee_id": "syn:payee:1",
+        "entities_subcategory_id": null,
+        "entities_scheduled_transaction_id": null,
+        "date": "2026-08-29",
+        "date_entered_from_schedule": null,
+        "amount": -12345,
+        "cash_amount": 0,
+        "credit_amount": 0,
+        "credit_amount_adjusted": 0,
+        "subcategory_credit_amount_preceding": 0,
+        "memo": null,
+        "cleared": "Uncleared",
+        "accepted": false,
+        "check_number": null,
+        "flag": null,
+        "transfer_account_id": null,
+        "transfer_transaction_id": null,
+        "transfer_subtransaction_id": null,
+        "matched_transaction_id": null,
+        "ynab_id": "syn:import-dedup:1",
+        "imported_payee": "SYNTHETIC RAW MERCHANT",
+        "imported_date": "2026-08-29",
+        "original_imported_payee": "SYNTHETIC RAW MERCHANT",
+        "provider_cleansed_payee": "Synthetic Merchant",
+        "source": "raw_pending",
+        "debt_transaction_type": null
+      }
+    ],
+    "be_subtransactions": []
+  }
+}

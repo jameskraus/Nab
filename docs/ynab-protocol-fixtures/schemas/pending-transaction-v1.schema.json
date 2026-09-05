@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nab.invalid/schemas/pending-transaction-v1.schema.json",
+  "title": "NAB normalized YNAB pending transaction v1",
+  "description": "Closed structural schema for PendingTransactionV1. UTF-8 byte ceilings and semantic graph rules remain mandatory checks outside JSON Schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "source_system",
+    "private_entity_ref",
+    "public_transaction_id",
+    "accepted",
+    "cleared",
+    "public_account_id",
+    "private_account_ref",
+    "account_name",
+    "date",
+    "amount_milliunits",
+    "payee_name",
+    "imported_payee",
+    "provider_cleansed_payee",
+    "memo",
+    "capabilities",
+    "observed_at",
+    "lifecycle",
+    "source_value",
+    "relationship",
+    "budget_effect"
+  ],
+  "properties": {
+    "schema": {
+      "const": "nab.pending-transaction/1"
+    },
+    "source_system": {
+      "const": "ynab-web"
+    },
+    "private_entity_ref": {
+      "$ref": "#/$defs/privateTransactionRef"
+    },
+    "public_transaction_id": {
+      "const": null
+    },
+    "accepted": {
+      "type": "boolean"
+    },
+    "cleared": {
+      "enum": ["Cleared", "Uncleared", "Reconciled"]
+    },
+    "public_account_id": {
+      "const": null
+    },
+    "private_account_ref": {
+      "$ref": "#/$defs/privateAccountRef"
+    },
+    "account_name": {
+      "$ref": "#/$defs/textOrNull"
+    },
+    "date": {
+      "$ref": "#/$defs/fullDate"
+    },
+    "amount_milliunits": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*|-[1-9][0-9]*)$",
+      "maxLength": 17,
+      "description": "Canonical decimal whose exact integer value must also be within +/-9007199254740991; that range check is semantic because JSON Schema compares strings lexically."
+    },
+    "payee_name": {
+      "$ref": "#/$defs/textOrNull"
+    },
+    "imported_payee": {
+      "$ref": "#/$defs/textOrNull"
+    },
+    "provider_cleansed_payee": {
+      "$ref": "#/$defs/textOrNull"
+    },
+    "memo": {
+      "$ref": "#/$defs/textOrNull"
+    },
+    "capabilities": {
+      "$ref": "#/$defs/capabilities"
+    },
+    "observed_at": {
+      "$ref": "#/$defs/utcTimestamp"
+    },
+    "lifecycle": {
+      "enum": ["provider_pending", "entered_provisional", "raw_staging", "matched_provisional"]
+    },
+    "source_value": {
+      "enum": ["Pending", "ImportedPending", "raw_pending", "Matched"]
+    },
+    "relationship": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/pendingMatchRelationship"
+        }
+      ]
+    },
+    "budget_effect": {
+      "enum": ["none", "entered", "represented_by_match"]
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "lifecycle": {
+          "const": "provider_pending"
+        },
+        "source_value": {
+          "const": "Pending"
+        },
+        "relationship": {
+          "type": "null"
+        },
+        "budget_effect": {
+          "const": "none"
+        }
+      }
+    },
+    {
+      "properties": {
+        "lifecycle": {
+          "const": "raw_staging"
+        },
+        "source_value": {
+          "const": "raw_pending"
+        },
+        "relationship": {
+          "type": "null"
+        },
+        "budget_effect": {
+          "const": "none"
+        }
+      }
+    },
+    {
+      "properties": {
+        "lifecycle": {
+          "const": "entered_provisional"
+        },
+        "source_value": {
+          "const": "ImportedPending"
+        },
+        "relationship": {
+          "type": "null"
+        },
+        "budget_effect": {
+          "const": "entered"
+        }
+      }
+    },
+    {
+      "properties": {
+        "lifecycle": {
+          "const": "matched_provisional"
+        },
+        "source_value": {
+          "const": "Matched"
+        },
+        "relationship": {
+          "$ref": "#/$defs/pendingMatchRelationship"
+        },
+        "budget_effect": {
+          "const": "represented_by_match"
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "fullDate": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+    },
+    "utcTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\\.[0-9]{1,3})?Z$"
+    },
+    "textOrNull": {
+      "type": ["string", "null"],
+      "maxLength": 4096
+    },
+    "privateTransactionRef": {
+      "type": "string",
+      "pattern": "^ynp1_[A-Za-z0-9_-]{43}$",
+      "maxLength": 512
+    },
+    "privateAccountRef": {
+      "type": "string",
+      "pattern": "^yna1_[A-Za-z0-9_-]{43}$",
+      "maxLength": 512
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["public_get", "public_update", "private_read", "private_write"],
+      "properties": {
+        "public_get": {
+          "const": false
+        },
+        "public_update": {
+          "const": false
+        },
+        "private_read": {
+          "const": true
+        },
+        "private_write": {
+          "const": false
+        }
+      }
+    },
+    "pendingMatchRelationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "peer_private_ref", "peer_source_value", "reciprocal"],
+      "properties": {
+        "kind": {
+          "const": "pending_match"
+        },
+        "peer_private_ref": {
+          "$ref": "#/$defs/privateTransactionRef"
+        },
+        "peer_source_value": {
+          "const": "matched_pending"
+        },
+        "reciprocal": {
+          "const": true
+        }
+      }
+    }
+  }
+}

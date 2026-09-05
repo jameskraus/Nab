@@ -1,0 +1,7 @@
+{
+  "error": {
+    "id": "synthetic_error",
+    "message": "Synthetic fixture error",
+    "data": "{\"synthetic\":true}"
+  }
+}

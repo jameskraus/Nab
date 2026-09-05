@@ -1,0 +1,16 @@
+{
+  "error": null,
+  "schema_version_of_response": 44,
+  "schema_version_of_server": 44,
+  "server_knowledge_of_device": 0,
+  "current_server_knowledge": 102,
+  "changed_entities": {
+    "be_transactions": [
+      {
+        "id": "syn:transaction:raw-pending:1",
+        "is_tombstone": true
+      }
+    ],
+    "be_subtransactions": []
+  }
+}

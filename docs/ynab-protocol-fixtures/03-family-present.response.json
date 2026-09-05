@@ -1,0 +1,28 @@
+{
+  "error": null,
+  "schema_version_of_response": 4,
+  "schema_version_of_server": 4,
+  "server_knowledge_of_device": 0,
+  "current_server_knowledge": 7,
+  "changed_entities": {
+    "fe_family": {
+      "id": "syn:family:1",
+      "is_tombstone": false
+    },
+    "fe_family_members": [
+      {
+        "id": "syn:family-member:1",
+        "is_tombstone": false,
+        "family_id": "syn:family:1",
+        "user_id": "syn:user:1",
+        "first_name": "Synthetic",
+        "email": "synthetic@example.invalid",
+        "family_role": "owner",
+        "owned_budget_ids": ["syn:budget:1"],
+        "shared_budget_ids": [],
+        "display_initial": "S",
+        "sort_index": 0
+      }
+    ]
+  }
+}

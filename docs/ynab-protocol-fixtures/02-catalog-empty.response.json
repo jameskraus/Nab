@@ -1,0 +1,13 @@
+{
+  "error": null,
+  "schema_version_of_response": 17,
+  "schema_version_of_server": 17,
+  "server_knowledge_of_device": 0,
+  "current_server_knowledge": 11,
+  "changed_entities": {
+    "ce_users": [],
+    "ce_user_budgets": [],
+    "ce_user_settings": [],
+    "ce_user_privacy_policy_agreements": []
+  }
+}

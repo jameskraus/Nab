@@ -1,0 +1,15 @@
+{
+  "error": null,
+  "session_token": "SYNTHETIC_SESSION_TOKEN_DO_NOT_USE",
+  "user": {
+    "id": "syn:user:1",
+    "username": "synthetic-user",
+    "email": "synthetic@example.invalid",
+    "family_id": "syn:family:1",
+    "family_role": "owner",
+    "first_name": "Synthetic",
+    "is_subscribed": true
+  },
+  "user_budget": null,
+  "budget_version": null
+}

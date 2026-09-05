@@ -1,0 +1,1031 @@
+{
+  "schema": "nab.ynab-catalog-fixture-manifest/2",
+  "synthetic_only": true,
+  "execution_model": "reset_then_inject_provider_context_then_apply_setup_in_order",
+  "protocol_profile": "pending-read-v1",
+  "schema_files": {
+    "manifest": "schemas/fixture-manifest-v2.schema.json",
+    "pending_transaction": "schemas/pending-transaction-v1.schema.json",
+    "pending_list": "schemas/pending-list-v1.schema.json",
+    "broker_request": "schemas/broker-request-v1.schema.json"
+  },
+  "provider_contract_context": {
+    "identity_key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "expected_account_fingerprint": "xHoLZn5pF74SlKMnapNOK-yZEUzCEa1qNcR5aLNqKQs",
+    "expected_plan_fingerprint": "13QQKzdqshNNpT9iHqwS3l5toDKkitfejE3IgnO0_EM",
+    "expected_budget_fingerprint": "yxgQqbprqxAHWT6mSlmFoFSy94JIPh5H4_1RrD5A0xg",
+    "synthetic_algorithm_assumptions": {
+      "matched_pending_shape": "enabled_for_algorithm_fixture_only",
+      "response_shape_registry": "assumed_closed_for_algorithm_fixture_only"
+    }
+  },
+  "normalization_context": {
+    "plan_ref": "00000000-0000-4000-8000-000000000001",
+    "reference_key_hex": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+    "observed_at": "2026-08-30T12:00:00.000Z",
+    "ynab_sync_age_ms": 0,
+    "source": "browser-catalog"
+  },
+  "state_oracles": {
+    "device_states": {
+      "active-catalog-sync": {
+        "lifecycle": "active",
+        "workflow_state": "catalog_sync",
+        "session_token_state": "committed",
+        "cache_state": "resident",
+        "logical_device_reusable": true
+      },
+      "active-family-sync": {
+        "lifecycle": "active",
+        "workflow_state": "family_sync_or_skip",
+        "session_token_state": "committed",
+        "cache_state": "resident",
+        "logical_device_reusable": true
+      },
+      "active-budget-bootstrap": {
+        "lifecycle": "active",
+        "workflow_state": "budget_bootstrap",
+        "session_token_state": "committed",
+        "cache_state": "resident",
+        "logical_device_reusable": true
+      },
+      "active-partial-backfill": {
+        "lifecycle": "active",
+        "workflow_state": "partial_backfill",
+        "session_token_state": "committed",
+        "cache_state": "resident",
+        "logical_device_reusable": true
+      },
+      "active-ready": {
+        "lifecycle": "active",
+        "workflow_state": "ready",
+        "session_token_state": "committed",
+        "cache_state": "resident",
+        "logical_device_reusable": true
+      },
+      "destroyed-permission-denied": {
+        "lifecycle": "destroyed",
+        "workflow_state": "permission_denied",
+        "session_token_state": "discarded",
+        "cache_state": "purged",
+        "logical_device_reusable": false
+      },
+      "destroyed-ambiguous-commit": {
+        "lifecycle": "destroyed",
+        "workflow_state": "ambiguous_commit",
+        "session_token_state": "discarded",
+        "cache_state": "purged",
+        "logical_device_reusable": false
+      },
+      "quarantined-protocol-update": {
+        "lifecycle": "quarantined",
+        "workflow_state": "protocol_update",
+        "session_token_state": "committed",
+        "cache_state": "resident_inaccessible",
+        "logical_device_reusable": false
+      },
+      "stopped-provider-error": {
+        "lifecycle": "stopped",
+        "workflow_state": "provider_error",
+        "session_token_state": "committed",
+        "cache_state": "resident_inaccessible",
+        "logical_device_reusable": false
+      },
+      "destroyed-protocol-changed": {
+        "lifecycle": "destroyed",
+        "workflow_state": "quarantined",
+        "session_token_state": "discarded",
+        "cache_state": "purged",
+        "logical_device_reusable": false
+      }
+    },
+    "catalog_states": {
+      "catalog-uninitialized": {
+        "status": "not_initialized",
+        "schema_version_of_knowledge": null,
+        "Kc": null,
+        "Ks": null,
+        "Kr": null,
+        "identity": {
+          "bound_user_id": null,
+          "selected_budget_id": null,
+          "selected_budget_version_id": null
+        },
+        "active_entity_ids": {
+          "ce_users": [],
+          "ce_user_budgets": []
+        },
+        "tombstone_entity_ids": {
+          "ce_users": [],
+          "ce_user_budgets": []
+        }
+      },
+      "catalog-awaiting-0": {
+        "status": "awaiting_catalog",
+        "schema_version_of_knowledge": 17,
+        "Kc": 0,
+        "Ks": 0,
+        "Kr": 0,
+        "identity": {
+          "bound_user_id": "syn:user:1",
+          "selected_budget_id": null,
+          "selected_budget_version_id": null
+        },
+        "active_entity_ids": {
+          "ce_users": ["syn:user:1"],
+          "ce_user_budgets": []
+        },
+        "tombstone_entity_ids": {
+          "ce_users": [],
+          "ce_user_budgets": []
+        }
+      },
+      "catalog-selected-12": {
+        "status": "selected",
+        "schema_version_of_knowledge": 17,
+        "Kc": 0,
+        "Ks": 0,
+        "Kr": 12,
+        "identity": {
+          "bound_user_id": "syn:user:1",
+          "selected_budget_id": "syn:budget:1",
+          "selected_budget_version_id": "syn:budget-version:1"
+        },
+        "active_entity_ids": {
+          "ce_users": ["syn:user:1"],
+          "ce_user_budgets": ["syn:user-budget:1"]
+        },
+        "tombstone_entity_ids": {
+          "ce_users": [],
+          "ce_user_budgets": []
+        }
+      }
+    },
+    "family_states": {
+      "family-uninitialized": {
+        "status": "not_initialized",
+        "schema_version_of_knowledge": null,
+        "Kc": null,
+        "Ks": null,
+        "Kr": null,
+        "identity": { "family_id": null, "unavailable_reason": null },
+        "active_entity_ids": {
+          "fe_family": [],
+          "fe_family_members": []
+        },
+        "tombstone_entity_ids": {
+          "fe_family": [],
+          "fe_family_members": []
+        }
+      },
+      "family-sync-pending-0": {
+        "status": "sync_pending",
+        "schema_version_of_knowledge": 4,
+        "Kc": 0,
+        "Ks": 0,
+        "Kr": 0,
+        "identity": { "family_id": "syn:family:1", "unavailable_reason": null },
+        "active_entity_ids": {
+          "fe_family": [],
+          "fe_family_members": []
+        },
+        "tombstone_entity_ids": {
+          "fe_family": [],
+          "fe_family_members": []
+        }
+      },
+      "family-available-7": {
+        "status": "available",
+        "schema_version_of_knowledge": 4,
+        "Kc": 0,
+        "Ks": 0,
+        "Kr": 7,
+        "identity": { "family_id": "syn:family:1", "unavailable_reason": null },
+        "active_entity_ids": {
+          "fe_family": ["syn:family:1"],
+          "fe_family_members": ["syn:family-member:1"]
+        },
+        "tombstone_entity_ids": {
+          "fe_family": [],
+          "fe_family_members": []
+        }
+      }
+    },
+    "budget_states": {
+      "budget-uninitialized": {
+        "status": "not_initialized",
+        "schema_version_of_knowledge": null,
+        "Kc": null,
+        "Ks": null,
+        "Kr": null,
+        "identity": {
+          "budget_id": null,
+          "budget_version_id": null
+        },
+        "range": { "first_month": null, "last_month": null },
+        "active_entity_ids": {
+          "be_budget": [],
+          "be_accounts": [],
+          "be_payees": [],
+          "be_transactions": [],
+          "be_subtransactions": []
+        },
+        "tombstone_entity_ids": {
+          "be_budget": [],
+          "be_accounts": [],
+          "be_payees": [],
+          "be_transactions": [],
+          "be_subtransactions": []
+        }
+      },
+      "budget-sync-pending-0": {
+        "status": "sync_pending",
+        "schema_version_of_knowledge": 44,
+        "Kc": 0,
+        "Ks": 0,
+        "Kr": 0,
+        "identity": {
+          "budget_id": "syn:budget:1",
+          "budget_version_id": "syn:budget-version:1"
+        },
+        "range": { "first_month": null, "last_month": null },
+        "active_entity_ids": {
+          "be_budget": [],
+          "be_accounts": [],
+          "be_payees": [],
+          "be_transactions": [],
+          "be_subtransactions": []
+        },
+        "tombstone_entity_ids": {
+          "be_budget": [],
+          "be_accounts": [],
+          "be_payees": [],
+          "be_transactions": [],
+          "be_subtransactions": []
+        }
+      },
+      "budget-bootstrap-partial-0": {
+        "status": "bootstrap_partial",
+        "schema_version_of_knowledge": 44,
+        "Kc": 0,
+        "Ks": 0,
+        "Kr": 0,
+        "identity": {
+          "budget_id": "syn:budget:1",
+          "budget_version_id": "syn:budget-version:1"
+        },
+        "range": { "first_month": "2026-08-01", "last_month": "2026-08-01" },
+        "active_entity_ids": {
+          "be_budget": ["syn:budget-version:1"],
+          "be_accounts": [],
+          "be_payees": [],
+          "be_transactions": [],
+          "be_subtransactions": []
+        },
+        "tombstone_entity_ids": {
+          "be_budget": [],
+          "be_accounts": [],
+          "be_payees": [],
+          "be_transactions": [],
+          "be_subtransactions": []
+        }
+      },
+      "budget-ready-empty-100": {
+        "status": "ready",
+        "schema_version_of_knowledge": 44,
+        "Kc": 0,
+        "Ks": 0,
+        "Kr": 100,
+        "identity": {
+          "budget_id": "syn:budget:1",
+          "budget_version_id": "syn:budget-version:1"
+        },
+        "range": { "first_month": "2026-08-01", "last_month": "2026-08-01" },
+        "active_entity_ids": {
+          "be_budget": ["syn:budget-version:1"],
+          "be_accounts": [],
+          "be_payees": [],
+          "be_transactions": [],
+          "be_subtransactions": []
+        },
+        "tombstone_entity_ids": {
+          "be_budget": [],
+          "be_accounts": [],
+          "be_payees": [],
+          "be_transactions": [],
+          "be_subtransactions": []
+        }
+      },
+      "budget-ready-empty-101": {
+        "status": "ready",
+        "schema_version_of_knowledge": 44,
+        "Kc": 0,
+        "Ks": 0,
+        "Kr": 101,
+        "identity": {
+          "budget_id": "syn:budget:1",
+          "budget_version_id": "syn:budget-version:1"
+        },
+        "range": { "first_month": "2026-08-01", "last_month": "2026-08-01" },
+        "active_entity_ids": {
+          "be_budget": ["syn:budget-version:1"],
+          "be_accounts": [],
+          "be_payees": [],
+          "be_transactions": [],
+          "be_subtransactions": []
+        },
+        "tombstone_entity_ids": {
+          "be_budget": [],
+          "be_accounts": [],
+          "be_payees": [],
+          "be_transactions": [],
+          "be_subtransactions": []
+        }
+      },
+      "budget-ready-raw-100": {
+        "status": "ready",
+        "schema_version_of_knowledge": 44,
+        "Kc": 0,
+        "Ks": 0,
+        "Kr": 100,
+        "identity": {
+          "budget_id": "syn:budget:1",
+          "budget_version_id": "syn:budget-version:1"
+        },
+        "range": { "first_month": "2026-08-01", "last_month": "2026-08-01" },
+        "active_entity_ids": {
+          "be_budget": ["syn:budget-version:1"],
+          "be_accounts": ["syn:account:private:1"],
+          "be_payees": ["syn:payee:1"],
+          "be_transactions": ["syn:transaction:raw-pending:1"],
+          "be_subtransactions": []
+        },
+        "tombstone_entity_ids": {
+          "be_budget": [],
+          "be_accounts": [],
+          "be_payees": [],
+          "be_transactions": [],
+          "be_subtransactions": []
+        }
+      },
+      "budget-ready-matched-101": {
+        "status": "ready",
+        "schema_version_of_knowledge": 44,
+        "Kc": 0,
+        "Ks": 0,
+        "Kr": 101,
+        "identity": {
+          "budget_id": "syn:budget:1",
+          "budget_version_id": "syn:budget-version:1"
+        },
+        "range": { "first_month": "2026-08-01", "last_month": "2026-08-01" },
+        "active_entity_ids": {
+          "be_budget": ["syn:budget-version:1"],
+          "be_accounts": ["syn:account:private:1"],
+          "be_payees": ["syn:payee:1"],
+          "be_transactions": ["syn:transaction:hidden:1", "syn:transaction:visible:1"],
+          "be_subtransactions": []
+        },
+        "tombstone_entity_ids": {
+          "be_budget": [],
+          "be_accounts": [],
+          "be_payees": [],
+          "be_transactions": [],
+          "be_subtransactions": []
+        }
+      },
+      "budget-ready-no-payee-102": {
+        "status": "ready",
+        "schema_version_of_knowledge": 44,
+        "Kc": 0,
+        "Ks": 0,
+        "Kr": 102,
+        "identity": {
+          "budget_id": "syn:budget:1",
+          "budget_version_id": "syn:budget-version:1"
+        },
+        "range": { "first_month": "2026-08-01", "last_month": "2026-08-01" },
+        "active_entity_ids": {
+          "be_budget": ["syn:budget-version:1"],
+          "be_accounts": ["syn:account:private:1"],
+          "be_payees": [],
+          "be_transactions": ["syn:transaction:pending-no-payee:1"],
+          "be_subtransactions": []
+        },
+        "tombstone_entity_ids": {
+          "be_budget": [],
+          "be_accounts": [],
+          "be_payees": [],
+          "be_transactions": [],
+          "be_subtransactions": []
+        }
+      },
+      "budget-ready-tombstone-102": {
+        "status": "ready",
+        "schema_version_of_knowledge": 44,
+        "Kc": 0,
+        "Ks": 0,
+        "Kr": 102,
+        "identity": {
+          "budget_id": "syn:budget:1",
+          "budget_version_id": "syn:budget-version:1"
+        },
+        "range": { "first_month": "2026-08-01", "last_month": "2026-08-01" },
+        "active_entity_ids": {
+          "be_budget": ["syn:budget-version:1"],
+          "be_accounts": ["syn:account:private:1"],
+          "be_payees": ["syn:payee:1"],
+          "be_transactions": [],
+          "be_subtransactions": []
+        },
+        "tombstone_entity_ids": {
+          "be_budget": [],
+          "be_accounts": [],
+          "be_payees": [],
+          "be_transactions": ["syn:transaction:raw-pending:1"],
+          "be_subtransactions": []
+        }
+      },
+      "budget-ready-transfer-101": {
+        "status": "ready",
+        "schema_version_of_knowledge": 44,
+        "Kc": 0,
+        "Ks": 0,
+        "Kr": 101,
+        "identity": {
+          "budget_id": "syn:budget:1",
+          "budget_version_id": "syn:budget-version:1"
+        },
+        "range": { "first_month": "2026-08-01", "last_month": "2026-08-01" },
+        "active_entity_ids": {
+          "be_budget": ["syn:budget-version:1"],
+          "be_accounts": ["syn:account:private:1"],
+          "be_payees": ["syn:payee:1"],
+          "be_transactions": ["syn:transaction:pending-transfer:1"],
+          "be_subtransactions": []
+        },
+        "tombstone_entity_ids": {
+          "be_budget": [],
+          "be_accounts": [],
+          "be_payees": [],
+          "be_transactions": [],
+          "be_subtransactions": []
+        }
+      },
+      "budget-ready-transfer-payee-102": {
+        "status": "ready",
+        "schema_version_of_knowledge": 44,
+        "Kc": 0,
+        "Ks": 0,
+        "Kr": 102,
+        "identity": {
+          "budget_id": "syn:budget:1",
+          "budget_version_id": "syn:budget-version:1"
+        },
+        "range": { "first_month": "2026-08-01", "last_month": "2026-08-01" },
+        "active_entity_ids": {
+          "be_budget": ["syn:budget-version:1"],
+          "be_accounts": ["syn:account:private:1"],
+          "be_payees": ["syn:payee:transfer:1"],
+          "be_transactions": ["syn:transaction:pending-transfer-payee:1"],
+          "be_subtransactions": []
+        },
+        "tombstone_entity_ids": {
+          "be_budget": [],
+          "be_accounts": [],
+          "be_payees": [],
+          "be_transactions": [],
+          "be_subtransactions": []
+        }
+      },
+      "budget-ready-split-101": {
+        "status": "ready",
+        "schema_version_of_knowledge": 44,
+        "Kc": 0,
+        "Ks": 0,
+        "Kr": 101,
+        "identity": {
+          "budget_id": "syn:budget:1",
+          "budget_version_id": "syn:budget-version:1"
+        },
+        "range": { "first_month": "2026-08-01", "last_month": "2026-08-01" },
+        "active_entity_ids": {
+          "be_budget": ["syn:budget-version:1"],
+          "be_accounts": ["syn:account:private:1"],
+          "be_payees": ["syn:payee:1"],
+          "be_transactions": ["syn:transaction:pending-split:1"],
+          "be_subtransactions": ["syn:subtransaction:pending-split:1"]
+        },
+        "tombstone_entity_ids": {
+          "be_budget": [],
+          "be_accounts": [],
+          "be_payees": [],
+          "be_transactions": [],
+          "be_subtransactions": []
+        }
+      }
+    },
+    "post_states": {
+      "after-initial": {
+        "device_state": "active-catalog-sync",
+        "catalog_state": "catalog-awaiting-0",
+        "family_state": "family-uninitialized",
+        "budget_state": "budget-uninitialized"
+      },
+      "after-catalog-permission-denied": {
+        "device_state": "destroyed-permission-denied",
+        "catalog_state": "catalog-uninitialized",
+        "family_state": "family-uninitialized",
+        "budget_state": "budget-uninitialized"
+      },
+      "after-catalog-authorized": {
+        "device_state": "active-family-sync",
+        "catalog_state": "catalog-selected-12",
+        "family_state": "family-sync-pending-0",
+        "budget_state": "budget-sync-pending-0"
+      },
+      "after-family-present": {
+        "device_state": "active-budget-bootstrap",
+        "catalog_state": "catalog-selected-12",
+        "family_state": "family-available-7",
+        "budget_state": "budget-sync-pending-0"
+      },
+      "after-budget-bootstrap": {
+        "device_state": "active-partial-backfill",
+        "catalog_state": "catalog-selected-12",
+        "family_state": "family-available-7",
+        "budget_state": "budget-bootstrap-partial-0"
+      },
+      "after-budget-backfill-raw": {
+        "device_state": "active-ready",
+        "catalog_state": "catalog-selected-12",
+        "family_state": "family-available-7",
+        "budget_state": "budget-ready-raw-100"
+      },
+      "after-budget-backfill-empty": {
+        "device_state": "active-ready",
+        "catalog_state": "catalog-selected-12",
+        "family_state": "family-available-7",
+        "budget_state": "budget-ready-empty-100"
+      },
+      "after-budget-delta-matched": {
+        "device_state": "active-ready",
+        "catalog_state": "catalog-selected-12",
+        "family_state": "family-available-7",
+        "budget_state": "budget-ready-matched-101"
+      },
+      "after-budget-delta-no-payee": {
+        "device_state": "active-ready",
+        "catalog_state": "catalog-selected-12",
+        "family_state": "family-available-7",
+        "budget_state": "budget-ready-no-payee-102"
+      },
+      "after-budget-delta-tombstone": {
+        "device_state": "active-ready",
+        "catalog_state": "catalog-selected-12",
+        "family_state": "family-available-7",
+        "budget_state": "budget-ready-tombstone-102"
+      },
+      "after-budget-delta-no-change": {
+        "device_state": "active-ready",
+        "catalog_state": "catalog-selected-12",
+        "family_state": "family-available-7",
+        "budget_state": "budget-ready-empty-101"
+      },
+      "after-ambiguous-request": {
+        "device_state": "destroyed-ambiguous-commit",
+        "catalog_state": "catalog-uninitialized",
+        "family_state": "family-uninitialized",
+        "budget_state": "budget-uninitialized"
+      },
+      "after-schema-mismatch": {
+        "device_state": "quarantined-protocol-update",
+        "catalog_state": "catalog-selected-12",
+        "family_state": "family-available-7",
+        "budget_state": "budget-ready-empty-100"
+      },
+      "after-provider-error": {
+        "device_state": "stopped-provider-error",
+        "catalog_state": "catalog-selected-12",
+        "family_state": "family-available-7",
+        "budget_state": "budget-ready-empty-100"
+      },
+      "after-pending-transfer": {
+        "device_state": "active-ready",
+        "catalog_state": "catalog-selected-12",
+        "family_state": "family-available-7",
+        "budget_state": "budget-ready-transfer-101"
+      },
+      "after-pending-transfer-payee": {
+        "device_state": "active-ready",
+        "catalog_state": "catalog-selected-12",
+        "family_state": "family-available-7",
+        "budget_state": "budget-ready-transfer-payee-102"
+      },
+      "after-pending-split": {
+        "device_state": "active-ready",
+        "catalog_state": "catalog-selected-12",
+        "family_state": "family-available-7",
+        "budget_state": "budget-ready-split-101"
+      },
+      "after-protocol-changed": {
+        "device_state": "destroyed-protocol-changed",
+        "catalog_state": "catalog-uninitialized",
+        "family_state": "family-uninitialized",
+        "budget_state": "budget-uninitialized"
+      }
+    }
+  },
+  "cases": [
+    {
+      "case_id": "initial-token-replacement",
+      "fixture_file": "01-initial.response.json",
+      "operation": "getInitialUserData",
+      "direction": "response",
+      "sync_type": null,
+      "setup": [],
+      "expected": {
+        "disposition": "accept",
+        "phase": "initial_decode",
+        "commit": "session_user_zero_catalog_after_account_binding",
+        "error_code": null,
+        "normalized_output_file": null,
+        "post_state_oracle": "after-initial"
+      }
+    },
+    {
+      "case_id": "catalog-empty",
+      "fixture_file": "02-catalog-empty.response.json",
+      "operation": "syncCatalogData",
+      "direction": "response",
+      "sync_type": null,
+      "setup": ["01-initial.response.json"],
+      "expected": {
+        "disposition": "reject_without_commit",
+        "phase": "merge",
+        "commit": "none",
+        "error_code": "PERMISSION_DENIED",
+        "normalized_output_file": null,
+        "post_state_oracle": "after-catalog-permission-denied"
+      }
+    },
+    {
+      "case_id": "catalog-authorized-relation",
+      "fixture_file": "02a-catalog-authorized.response.json",
+      "operation": "syncCatalogData",
+      "direction": "response",
+      "sync_type": null,
+      "setup": ["01-initial.response.json"],
+      "expected": {
+        "disposition": "accept",
+        "phase": "merge",
+        "commit": "catalog_entities_then_cursor",
+        "error_code": null,
+        "normalized_output_file": null,
+        "post_state_oracle": "after-catalog-authorized"
+      }
+    },
+    {
+      "case_id": "family-present",
+      "fixture_file": "03-family-present.response.json",
+      "operation": "syncFamilyData",
+      "direction": "response",
+      "sync_type": null,
+      "setup": ["01-initial.response.json", "02a-catalog-authorized.response.json"],
+      "expected": {
+        "disposition": "accept",
+        "phase": "merge",
+        "commit": "family_entities_then_cursor",
+        "error_code": null,
+        "normalized_output_file": null,
+        "post_state_oracle": "after-family-present"
+      }
+    },
+    {
+      "case_id": "budget-bootstrap-no-checkpoint",
+      "fixture_file": "04-budget-bootstrap.response.json",
+      "operation": "syncBudgetData",
+      "direction": "response",
+      "sync_type": "bootstrap",
+      "setup": [
+        "01-initial.response.json",
+        "02a-catalog-authorized.response.json",
+        "03-family-present.response.json"
+      ],
+      "expected": {
+        "disposition": "accept",
+        "phase": "merge",
+        "commit": "budget_entities_without_cursor",
+        "error_code": null,
+        "normalized_output_file": null,
+        "post_state_oracle": "after-budget-bootstrap"
+      }
+    },
+    {
+      "case_id": "budget-backfill-raw-pending",
+      "fixture_file": "05-budget-backfill-raw-pending.response.json",
+      "operation": "syncBudgetData",
+      "direction": "response",
+      "sync_type": "backfill",
+      "setup": [
+        "01-initial.response.json",
+        "02a-catalog-authorized.response.json",
+        "03-family-present.response.json",
+        "04-budget-bootstrap.response.json"
+      ],
+      "expected": {
+        "disposition": "accept",
+        "phase": "normalize",
+        "commit": "budget_entities_then_cursor",
+        "error_code": null,
+        "normalized_output_file": "expected/05-raw-pending.list.json",
+        "post_state_oracle": "after-budget-backfill-raw"
+      }
+    },
+    {
+      "case_id": "budget-backfill-empty",
+      "fixture_file": "05a-budget-backfill-empty.response.json",
+      "operation": "syncBudgetData",
+      "direction": "response",
+      "sync_type": "backfill",
+      "setup": [
+        "01-initial.response.json",
+        "02a-catalog-authorized.response.json",
+        "03-family-present.response.json",
+        "04-budget-bootstrap.response.json"
+      ],
+      "expected": {
+        "disposition": "accept",
+        "phase": "normalize",
+        "commit": "budget_entities_then_cursor",
+        "error_code": null,
+        "normalized_output_file": "expected/empty-materialized.list.json",
+        "post_state_oracle": "after-budget-backfill-empty"
+      }
+    },
+    {
+      "case_id": "budget-delta-matched-pending",
+      "fixture_file": "06-budget-delta-matched-pending.response.json",
+      "operation": "syncBudgetData",
+      "direction": "response",
+      "sync_type": "delta",
+      "setup": [
+        "01-initial.response.json",
+        "02a-catalog-authorized.response.json",
+        "03-family-present.response.json",
+        "04-budget-bootstrap.response.json",
+        "05a-budget-backfill-empty.response.json"
+      ],
+      "expected": {
+        "disposition": "accept",
+        "phase": "normalize",
+        "commit": "budget_entities_then_cursor",
+        "error_code": null,
+        "normalized_output_file": "expected/06-matched-pending.list.json",
+        "post_state_oracle": "after-budget-delta-matched"
+      }
+    },
+    {
+      "case_id": "budget-delta-tombstone",
+      "fixture_file": "07-budget-delta-tombstone.response.json",
+      "operation": "syncBudgetData",
+      "direction": "response",
+      "sync_type": "delta",
+      "setup": [
+        "01-initial.response.json",
+        "02a-catalog-authorized.response.json",
+        "03-family-present.response.json",
+        "04-budget-bootstrap.response.json",
+        "05-budget-backfill-raw-pending.response.json"
+      ],
+      "expected": {
+        "disposition": "accept",
+        "phase": "normalize",
+        "commit": "budget_entities_then_cursor",
+        "error_code": null,
+        "normalized_output_file": "expected/empty-materialized.list.json",
+        "post_state_oracle": "after-budget-delta-tombstone"
+      }
+    },
+    {
+      "case_id": "budget-delta-pending-absent-payee",
+      "fixture_file": "06a-budget-delta-pending-absent-payee.response.json",
+      "operation": "syncBudgetData",
+      "direction": "response",
+      "sync_type": "delta",
+      "setup": [
+        "01-initial.response.json",
+        "02a-catalog-authorized.response.json",
+        "03-family-present.response.json",
+        "04-budget-bootstrap.response.json",
+        "05a-budget-backfill-empty.response.json"
+      ],
+      "expected": {
+        "disposition": "accept",
+        "phase": "normalize",
+        "commit": "budget_entities_then_cursor",
+        "error_code": null,
+        "normalized_output_file": "expected/06a-pending-absent-payee.list.json",
+        "post_state_oracle": "after-budget-delta-no-payee"
+      }
+    },
+    {
+      "case_id": "budget-delta-no-change",
+      "fixture_file": "08-budget-delta-no-change.response.json",
+      "operation": "syncBudgetData",
+      "direction": "response",
+      "sync_type": "delta",
+      "setup": [
+        "01-initial.response.json",
+        "02a-catalog-authorized.response.json",
+        "03-family-present.response.json",
+        "04-budget-bootstrap.response.json",
+        "05a-budget-backfill-empty.response.json"
+      ],
+      "expected": {
+        "disposition": "accept",
+        "phase": "normalize",
+        "commit": "budget_cursor_only",
+        "error_code": null,
+        "normalized_output_file": "expected/empty-materialized.list.json",
+        "post_state_oracle": "after-budget-delta-no-change"
+      }
+    },
+    {
+      "case_id": "request-nonempty-change-guard",
+      "fixture_file": "90-invalid-nonempty-budget.request.json",
+      "operation": "syncBudgetData",
+      "direction": "request",
+      "sync_type": "delta",
+      "setup": [
+        "01-initial.response.json",
+        "02a-catalog-authorized.response.json",
+        "03-family-present.response.json",
+        "04-budget-bootstrap.response.json",
+        "05a-budget-backfill-empty.response.json"
+      ],
+      "expected": {
+        "disposition": "reject_before_transport",
+        "phase": "request_guard",
+        "commit": "none",
+        "error_code": "AMBIGUOUS_COMMIT",
+        "normalized_output_file": null,
+        "post_state_oracle": "after-ambiguous-request"
+      }
+    },
+    {
+      "case_id": "response-schema-mismatch",
+      "fixture_file": "91-invalid-schema.response.json",
+      "operation": "syncBudgetData",
+      "direction": "response",
+      "sync_type": "delta",
+      "setup": [
+        "01-initial.response.json",
+        "02a-catalog-authorized.response.json",
+        "03-family-present.response.json",
+        "04-budget-bootstrap.response.json",
+        "05a-budget-backfill-empty.response.json"
+      ],
+      "expected": {
+        "disposition": "reject_without_commit",
+        "phase": "response_decode",
+        "commit": "none",
+        "error_code": "SCHEMA_CHANGED",
+        "normalized_output_file": null,
+        "post_state_oracle": "after-schema-mismatch"
+      }
+    },
+    {
+      "case_id": "response-application-error",
+      "fixture_file": "92-invalid-application-error.response.json",
+      "operation": "syncBudgetData",
+      "direction": "response",
+      "sync_type": "delta",
+      "setup": [
+        "01-initial.response.json",
+        "02a-catalog-authorized.response.json",
+        "03-family-present.response.json",
+        "04-budget-bootstrap.response.json",
+        "05a-budget-backfill-empty.response.json"
+      ],
+      "expected": {
+        "disposition": "reject_without_commit",
+        "phase": "response_decode",
+        "commit": "none",
+        "error_code": "PROVIDER_ERROR",
+        "normalized_output_file": null,
+        "post_state_oracle": "after-provider-error"
+      }
+    },
+    {
+      "case_id": "query-rejects-pending-transfer",
+      "fixture_file": "93-invalid-pending-transfer.response.json",
+      "operation": "syncBudgetData",
+      "direction": "response",
+      "sync_type": "delta",
+      "setup": [
+        "01-initial.response.json",
+        "02a-catalog-authorized.response.json",
+        "03-family-present.response.json",
+        "04-budget-bootstrap.response.json",
+        "05a-budget-backfill-empty.response.json"
+      ],
+      "expected": {
+        "disposition": "accept_then_query_error",
+        "phase": "normalize",
+        "commit": "budget_entities_then_cursor",
+        "error_code": "UNSUPPORTED_PENDING_SHAPE",
+        "normalized_output_file": null,
+        "post_state_oracle": "after-pending-transfer"
+      }
+    },
+    {
+      "case_id": "query-rejects-pending-transfer-payee",
+      "fixture_file": "93a-invalid-pending-transfer-payee.response.json",
+      "operation": "syncBudgetData",
+      "direction": "response",
+      "sync_type": "delta",
+      "setup": [
+        "01-initial.response.json",
+        "02a-catalog-authorized.response.json",
+        "03-family-present.response.json",
+        "04-budget-bootstrap.response.json",
+        "05a-budget-backfill-empty.response.json"
+      ],
+      "expected": {
+        "disposition": "accept_then_query_error",
+        "phase": "normalize",
+        "commit": "budget_entities_then_cursor",
+        "error_code": "UNSUPPORTED_PENDING_SHAPE",
+        "normalized_output_file": null,
+        "post_state_oracle": "after-pending-transfer-payee"
+      }
+    },
+    {
+      "case_id": "query-rejects-pending-split",
+      "fixture_file": "94-invalid-pending-split.response.json",
+      "operation": "syncBudgetData",
+      "direction": "response",
+      "sync_type": "delta",
+      "setup": [
+        "01-initial.response.json",
+        "02a-catalog-authorized.response.json",
+        "03-family-present.response.json",
+        "04-budget-bootstrap.response.json",
+        "05a-budget-backfill-empty.response.json"
+      ],
+      "expected": {
+        "disposition": "accept_then_query_error",
+        "phase": "normalize",
+        "commit": "budget_entities_then_cursor",
+        "error_code": "UNSUPPORTED_PENDING_SHAPE",
+        "normalized_output_file": null,
+        "post_state_oracle": "after-pending-split"
+      }
+    },
+    {
+      "case_id": "response-rejects-broken-match",
+      "fixture_file": "95-invalid-broken-match.response.json",
+      "operation": "syncBudgetData",
+      "direction": "response",
+      "sync_type": "delta",
+      "setup": [
+        "01-initial.response.json",
+        "02a-catalog-authorized.response.json",
+        "03-family-present.response.json",
+        "04-budget-bootstrap.response.json",
+        "05a-budget-backfill-empty.response.json"
+      ],
+      "expected": {
+        "disposition": "reject_without_commit",
+        "phase": "merge",
+        "commit": "none",
+        "error_code": "PROTOCOL_CHANGED",
+        "normalized_output_file": null,
+        "post_state_oracle": "after-protocol-changed"
+      }
+    },
+    {
+      "case_id": "query-rejects-dangling-payee",
+      "fixture_file": "96-invalid-dangling-payee.response.json",
+      "operation": "syncBudgetData",
+      "direction": "response",
+      "sync_type": "delta",
+      "setup": [
+        "01-initial.response.json",
+        "02a-catalog-authorized.response.json",
+        "03-family-present.response.json",
+        "04-budget-bootstrap.response.json",
+        "05a-budget-backfill-empty.response.json"
+      ],
+      "expected": {
+        "disposition": "accept_then_query_error",
+        "phase": "normalize",
+        "commit": "budget_entities_then_cursor",
+        "error_code": "PROTOCOL_CHANGED",
+        "normalized_output_file": null,
+        "post_state_oracle": "after-protocol-changed"
+      }
+    }
+  ]
+}

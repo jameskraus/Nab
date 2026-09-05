@@ -1,0 +1,10 @@
+{
+  "error": null,
+  "schema_version_of_response": 41,
+  "schema_version_of_server": 44,
+  "server_knowledge_of_device": 0,
+  "current_server_knowledge": 103,
+  "changed_entities": {
+    "be_transactions": []
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "error": null,
+  "schema_version_of_response": 44,
+  "schema_version_of_server": 44,
+  "server_knowledge_of_device": 0,
+  "current_server_knowledge": 101,
+  "changed_entities": {
+    "be_accounts": [
+      {
+        "id": "syn:account:private:1",
+        "is_tombstone": false,
+        "account_name": "Synthetic Checking"
+      }
+    ],
+    "be_payees": [
+      {
+        "id": "syn:payee:1",
+        "is_tombstone": false,
+        "name": "Synthetic Split Payee"
+      }
+    ],
+    "be_transactions": [
+      {
+        "id": "syn:transaction:pending-split:1",
+        "is_tombstone": false,
+        "entities_account_id": "syn:account:private:1",
+        "entities_payee_id": "syn:payee:1",
+        "entities_subcategory_id": null,
+        "entities_scheduled_transaction_id": null,
+        "date": "2026-08-30",
+        "date_entered_from_schedule": null,
+        "amount": -30000,
+        "cash_amount": 0,
+        "credit_amount": 0,
+        "credit_amount_adjusted": 0,
+        "subcategory_credit_amount_preceding": 0,
+        "memo": null,
+        "cleared": "Uncleared",
+        "accepted": false,
+        "check_number": null,
+        "flag": null,
+        "transfer_account_id": null,
+        "transfer_transaction_id": null,
+        "transfer_subtransaction_id": null,
+        "matched_transaction_id": null,
+        "ynab_id": "syn:import-dedup:split:1",
+        "imported_payee": "SYNTHETIC SPLIT",
+        "imported_date": "2026-08-30",
+        "original_imported_payee": "SYNTHETIC SPLIT",
+        "provider_cleansed_payee": "Synthetic Split Payee",
+        "source": "raw_pending",
+        "debt_transaction_type": null
+      }
+    ],
+    "be_subtransactions": [
+      {
+        "id": "syn:subtransaction:pending-split:1",
+        "is_tombstone": false,
+        "entities_transaction_id": "syn:transaction:pending-split:1",
+        "entities_payee_id": "syn:payee:1",
+        "entities_subcategory_id": null,
+        "amount": -30000,
+        "cash_amount": 0,
+        "credit_amount": 0,
+        "credit_amount_adjusted": 0,
+        "subcategory_credit_amount_preceding": 0,
+        "memo": null,
+        "check_number": null,
+        "transfer_account_id": null,
+        "transfer_transaction_id": null,
+        "sortable_index": 0
+      }
+    ]
+  }
+}
